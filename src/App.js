@@ -1,25 +1,680 @@
-import logo from './logo.svg';
-import './App.css';
-
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+import "./App.css";
+import React, { useEffect, useState } from "react";
+import local_rows from "./sdtm_for_studies.json";
+import {
+  Box,
+  Grid,
+  Autocomplete,
+  TextField,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Tooltip,
+  AppBar,
+  Toolbar,
+  IconButton,
+} from "@mui/material";
+import {
+  ArrowCircleUpTwoTone,
+  CheckCircleTwoTone,
+  Remove,
+  Add,
+  Save,
+  Info,
+  Search,
+} from "@mui/icons-material";
+import { DataGridPro, GridToolbar } from "@mui/x-data-grid-pro";
+import { getDir, xmlToJson } from "./utility";
+import { LicenseInfo } from "@mui/x-license-pro";
+const App = () => {
+  LicenseInfo.setLicenseKey(
+    "6b1cacb920025860cc06bcaf75ee7a66Tz05NDY2MixFPTE3NTMyNTMxMDQwMDAsUz1wcm8sTE09c3Vic2NyaXB0aW9uLEtWPTI="
   );
-}
+  const urlPrefix = window.location.protocol + "//" + window.location.host,
+    { href } = window.location,
+    mode = href.startsWith("http://localhost") ? "local" : "remote",
+    server = href.split("//")[1].split("/")[0],
+    webDavPrefix = urlPrefix + "/lsaf/webdav/repo",
+    fileViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/tools/fileviewer/index.html?file=`,
+    innerHeight = window.innerHeight,
+    title = "SDTM for studies",
+    dataUrl =
+      webDavPrefix +
+      "/general/biostat/jobs/gadam_ongoing_studies/dev/output/sdtm_for_studies.json",
+    [rowsToUse, setRowsToUse] = useState([]),
+    options = [
+      { label: "SDTM", value: "SDTM" },
+      { label: "GSDTM", value: "GSDTM" },
+      { label: "NONE", value: "NONE" },
+    ],
+    [ready, setReady] = useState(false),
+    cols = [
+      {
+        field: "compound",
+        headerName: "Compound",
+      },
+      {
+        field: "indication",
+        headerName: "Indication",
+      },
+      {
+        field: "studyname",
+        headerName: "Study",
+        width: 120,
+      },
+      {
+        field: "dateFirstVisible",
+        headerName: "First visible",
+      },
+      {
+        field: "dateLastVisible",
+        headerName: "Last visible",
+      },
+      {
+        field: "blockedDate",
+        headerName: "Blocked",
+      },
+      {
+        field: "gSDTMflag",
+        headerName: "gSDTM?",
+        width: 150,
+        renderCell: (cellValues) => {
+          const { row, value } = cellValues,
+            { id } = row;
+          return (
+            <Autocomplete
+              options={options}
+              disableCloseOnSelect
+              value={value}
+              isOptionEqualToValue={(option, value) => {
+                return option.label === value;
+              }}
+              onChange={(event, newValue) => {
+                rowsToUse[id].gSDTMflag = newValue.value;
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="Source" variant="standard" />
+              )}
+            />
+          );
+        },
+      },
+      {
+        field: "path",
+        headerName: "Path",
+        flex: 1,
+        renderCell: (cellValues) => {
+          const { value, row } = cellValues,
+            { id, new_study } = row;
+          return (
+            <Button
+              sx={{ backgroundColor: new_study === "Y" ? "yellow" : "white" }}
+              onClick={() => {
+                setSelectedId(id);
+                handleClick(value, id);
+              }}
+            >
+              {value}
+            </Button>
+          );
+        },
+      },
+      {
+        field: "id",
+        headerName: "FileViewer",
+        renderCell: (cellValues) => {
+          const { row } = cellValues,
+            { path } = row;
+          return (
+            <>
+              <IconButton
+                onClick={() => {
+                  window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
+                }}
+                size="small"
+              >
+                <Search />
+              </IconButton>
+            </>
+          );
+        },
+      },
+      {
+        field: "new_study",
+        headerName: "New?",
+        renderCell: (cellValues) => {
+          const { value } = cellValues;
+          return (
+            <Box sx={{ backgroundColor: value === "Y" ? "yellow" : "white" }}>
+              {value}
+            </Box>
+          );
+        },
+      },
+      {
+        field: "visibleFlag",
+        headerName: "Visible?",
+        renderCell: (cellValues) => {
+          const { value } = cellValues;
+          return (
+            <Box sx={{ backgroundColor: value === "N" ? "#ffeeee" : "white" }}>
+              {value}
+            </Box>
+          );
+        },
+      },
+    ],
+    [fontSize, setFontSize] = useState(
+      Number(localStorage.getItem("fontSize")) || 10
+    ),
+    fileCols = [
+      {
+        field: "label",
+        headerName: "name",
+        flex: 1,
+        renderCell: (cellValues) => {
+          const { row, value } = cellValues,
+            { isDirectory } = row,
+            url = row.value,
+            path =
+              url.indexOf("/repo/") > 0
+                ? url.slice(url.indexOf("/repo/") + 5)
+                : value;
+          let cell;
+          if (isDirectory)
+            cell = (
+              <Button
+                onClick={() => {
+                  handleClick(path);
+                }}
+              >
+                {value}
+              </Button>
+            );
+          else cell = <Box sx={{ color: "black" }}>{value}</Box>;
+          return cell;
+        },
+      },
+      {
+        field: "fileType",
+        headerName: "Use?",
+        renderCell: (cellValues) => {
+          const { value } = cellValues,
+            path =
+              value.indexOf("/repo/") > 0
+                ? value.slice(value.indexOf("/repo/") + 5)
+                : value;
+          return (
+            <IconButton
+              onClick={() => {
+                setSelectedPath(path);
+                setOpenWebdav(false);
+              }}
+              color={"info"}
+              sx={{ mr: 1 }}
+            >
+              <CheckCircleTwoTone />
+            </IconButton>
+          );
+        },
+      },
+      { field: "created", headerName: "created", width: 200 },
+      { field: "modified", headerName: "modified", width: 200 },
+      {
+        field: "value",
+        headerName: "path",
+        flex: 3,
+        renderCell: (cellValues) => {
+          const { value, row } = cellValues,
+            { isDirectory } = row,
+            path =
+              value.indexOf("/repo/") > 0
+                ? value.slice(value.indexOf("/repo/") + 5)
+                : value;
+          let cell;
+          if (isDirectory) cell = <Box sx={{ color: "blue" }}>{path}</Box>;
+          else cell = <Box sx={{ color: "black" }}>{path}</Box>;
+          return cell;
+        },
+      },
+    ],
+    [selectedId, setSelectedId] = useState(null),
+    handleClick = (path, id) => {
+      setOpenWebdav(true);
+      setSelectedId(id);
+      console.log("path", path, "id", id);
+      getWebDav(path);
+    },
+    [selectedPath, setSelectedPath] = useState(null),
+    [listOfFiles, setListOfFiles] = useState([{ value: "topDir", id: 0 }]),
+    [currentDir, setCurrentDir] = useState(""),
+    [parentDir, setParentDir] = useState(""),
+    [openWebdav, setOpenWebdav] = useState(false),
+    updateJsonFile = (dataUrl, rows) => {
+      console.log("dataUrl", dataUrl, "rows", rows);
+    },
+    [openInfo, setOpenInfo] = useState(false),
+    getWebDav = async (dir) => {
+      console.log("dir", dir, "mode", mode);
+      if (mode === "local") {
+        setListOfFiles([
+          {
+            value:
+              "https://xarprod.ondemand.sas.com/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/",
+            fileType: "/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/",
+            label: "argx-110-0000",
+            created: "2021-08-11T06:22:30Z",
+            modified: "Fri, 22 Apr 2022 13:49:21 GMT",
+            checkedOut: "No",
+            locked: "No",
+            version: null,
+            isDirectory: true,
+            id: 0,
+          },
+          {
+            value:
+              "https://xarprod.ondemand.sas.com/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/biostat/",
+            fileType:
+              "/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/biostat/",
+            label: "biostat",
+            created: "2021-08-11T06:22:30Z",
+            modified: "Fri, 22 Apr 2022 15:55:53 GMT",
+            checkedOut: "No",
+            locked: "No",
+            version: null,
+            isDirectory: true,
+            id: 1,
+          },
+          {
+            value:
+              "https://xarprod.ondemand.sas.com/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/dm/",
+            fileType:
+              "/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/dm/",
+            label: "dm",
+            created: "2021-08-11T06:22:31Z",
+            modified: "Fri, 22 Apr 2022 15:55:52 GMT",
+            checkedOut: "No",
+            locked: "No",
+            version: null,
+            isDirectory: true,
+            id: 2,
+          },
+        ]);
+      } else await getDir(webDavPrefix + dir, 1, processXml);
+    },
+    // [thisIsADir, setThisIsADir] = useState(false),
+    processXml = (responseXML) => {
+      // Here you can use the Data
+      let dataXML = responseXML;
+      let dataJSON = xmlToJson(dataXML.responseXML);
+      // if its not an array then we are not at a valid directory
+      if (
+        dataJSON["d:multistatus"]["d:response"].constructor.name !== "Array"
+      ) {
+        console.log("dataJSON", dataJSON);
+        // setThisIsADir(false);
+        return;
+      }
+      // setThisIsADir(true);
+      const files = dataJSON["d:multistatus"]["d:response"].map((record) => {
+          // console.log("record", record);
+          let path = record["d:href"]["#text"],
+            isDirectory = Array.isArray(record["d:propstat"]),
+            props = record["d:propstat"]["d:prop"],
+            dirProps = record["d:propstat"][0]
+              ? record["d:propstat"][0]["d:prop"]
+              : undefined;
+          if (props === undefined) {
+            if (dirProps === undefined) return null;
+            else props = dirProps;
+          }
+          const name = props["d:displayname"]["#text"] ?? "",
+            created = props["d:creationdate"]
+              ? props["d:creationdate"]["#text"]
+              : null,
+            modified = props["d:getlastmodified"]
+              ? props["d:getlastmodified"]["#text"]
+              : null,
+            checkedOut = props["ns1:checkedOut"]
+              ? props["ns1:checkedOut"]["#text"]
+              : null,
+            locked = props["ns1:locked"] ? props["ns1:locked"]["#text"] : null,
+            version = props["ns1:version"]
+              ? props["ns1:version"]["#text"]
+              : null,
+            fileType = path.split(".").pop(),
+            partOfFile = {
+              value: urlPrefix + path,
+              fileType: fileType,
+              label: isDirectory
+                ? name
+                : name +
+                  (modified ? " (" : "") +
+                  (modified ? modified : "") +
+                  (modified ? ") " : "") +
+                  (checkedOut && checkedOut !== "No" ? "checked-out " : "") +
+                  (locked && locked !== "No" ? "locked " : ""),
+              // label: name,
+              created: created,
+              modified: modified,
+              checkedOut: checkedOut,
+              locked: locked,
+              version: version,
+              isDirectory: isDirectory,
+            };
+          return partOfFile;
+        }),
+        tempListOfFiles = files
+          .filter((f) => f !== null && !f.isDirectory)
+          .sort((a, b) => {
+            const x = a.label.toLowerCase(),
+              y = b.label.toLowerCase();
+            if (x < y) {
+              return -1;
+            }
+            if (x > y) {
+              return 1;
+            }
+            return 0;
+          }),
+        tempListOfDirs = files
+          .filter((f) => f !== null && f.isDirectory)
+          .slice(1)
+          .sort((a, b) => {
+            const x = a.label.toLowerCase(),
+              y = b.label.toLowerCase();
+            if (x < y) {
+              return -1;
+            }
+            if (x > y) {
+              return 1;
+            }
+            return 0;
+          }),
+        filesAndDirs = [...tempListOfDirs, ...tempListOfFiles];
 
+      setListOfFiles(
+        filesAndDirs.map((r, id) => {
+          r.id = id;
+          return r;
+        })
+      );
+
+      console.log(
+        "files",
+        files,
+        "tempListOfDirs",
+        tempListOfDirs,
+        "tempListOfFiles",
+        tempListOfFiles,
+        "filesAndDirs",
+        filesAndDirs
+      );
+    };
+
+  useEffect(() => {
+    if (rowsToUse.length === 0) return;
+    console.log("rowsToUse", rowsToUse);
+    // add an id to each object in array
+    rowsToUse.forEach((e, i) => {
+      e.id = i;
+      if (e.new_study === "Y" || e.visibleFlag === "N") e.sort = 1;
+      else e.sort = 0;
+    });
+    // sort rowsToUse by sort and then by study_name
+    rowsToUse.sort((a, b) => {
+      if (a.sort < b.sort) return 1;
+      if (a.sort > b.sort) return -1;
+      if (a.gSDTMflag === "NONE") return -1;
+      if (a.studyname < b.studyname) return -1;
+      if (a.studyname > b.studyname) return 1;
+      return 0;
+    });
+    setReady(true);
+  }, [rowsToUse]);
+
+  useEffect(() => {
+    if (!listOfFiles || listOfFiles.length === 0) return;
+    const path = listOfFiles[0].value.slice(49),
+      tempCurrentDir = path.split("/").slice(0, -2).join("/"),
+      tempParentDir = path.split("/").slice(0, -3).join("/");
+    setCurrentDir(tempCurrentDir);
+    setParentDir(tempParentDir);
+  }, [listOfFiles]);
+
+  // update rowsToUse with selectedPath after the user has modified the path and clicked on the use button
+  useEffect(() => {
+    if (!selectedPath) return;
+    const ind = rowsToUse.findIndex((e) => e.id === selectedId);
+    rowsToUse[ind].path = selectedPath;
+    console.log(
+      "selectedPath",
+      selectedPath,
+      "selectedId",
+      selectedId,
+      "ind",
+      ind,
+      "rowsToUse",
+      rowsToUse
+    );
+    setSelectedPath(null);
+    // eslint-disable-next-line
+  }, [selectedPath]);
+
+  // get data from local or remote
+  useEffect(() => {
+    if (mode === "local") {
+      setRowsToUse(local_rows);
+    } else {
+      fetch(dataUrl)
+        .then((response) => response.json())
+        .then((data) => {
+          setRowsToUse(data);
+        });
+    }
+  }, [dataUrl, mode]);
+
+  return (
+    <>
+      <AppBar position="fixed">
+        <Toolbar variant="dense" sx={{ backgroundColor: "#cccccc" }}>
+          <Box
+            sx={{
+              backgroundColor: "#eeeeee",
+              color: "green",
+              fontWeight: "bold",
+              boxShadow: 3,
+              fontSize: 16,
+            }}
+          >
+            &nbsp;&nbsp;{title}&nbsp;&nbsp;
+          </Box>
+          <Tooltip title="Save JSON back to server">
+            <Button
+              variant="contained"
+              // disabled={!allowSave}
+              sx={{ m: 1, ml: 2, fontSize: fontSize }}
+              onClick={() => {
+                updateJsonFile(dataUrl, rowsToUse);
+              }}
+              size="small"
+              color="success"
+              startIcon={<Save sx={{ fontSize: fontSize }} />}
+            >
+              Save
+            </Button>
+          </Tooltip>
+          <Tooltip title="View Data Management gSDTM tracking sheet">
+            <Button
+              variant="contained"
+              // disabled={!allowSave}
+              sx={{ m: 1, ml: 2, fontSize: fontSize }}
+              onClick={() => {
+                window
+                  .open(
+                    `https://argenxbvba.sharepoint.com/:x:/s/LSAF_OCS-EXTTEAM/EYarxVqhRg1DtsY6A6EvBJYBJe_A7rg6q-m-nLdR-videA?e=sLj51z`,
+                    "_blank"
+                  )
+                  .focus();
+              }}
+              size="small"
+              color="warning"
+              startIcon={<Save sx={{ fontSize: fontSize }} />}
+            >
+              gSDTM
+            </Button>
+          </Tooltip>
+          <Tooltip title="Smaller font">
+            <IconButton
+              color="primary"
+              size="small"
+              onClick={() => {
+                setFontSize(fontSize - 1);
+                localStorage.setItem("fontSize", fontSize - 1);
+              }}
+            >
+              <Remove />
+            </IconButton>
+          </Tooltip>
+          &nbsp;{fontSize}&nbsp;
+          <Tooltip title="Larger font">
+            <IconButton
+              color="primary"
+              size="small"
+              onClick={() => {
+                setFontSize(fontSize + 1);
+                localStorage.setItem("fontSize", fontSize + 1);
+              }}
+            >
+              <Add />
+            </IconButton>
+          </Tooltip>
+          <Box>{dataUrl}</Box>
+          <Box sx={{ flexGrow: 1 }}></Box>
+          <Tooltip title="Information about this screen">
+            <IconButton
+              color="info"
+              // sx={{ mr: 2 }}
+              onClick={() => {
+                setOpenInfo(true);
+              }}
+            >
+              <Info />
+            </IconButton>
+          </Tooltip>
+        </Toolbar>
+      </AppBar>
+      <Grid container>
+        <Grid item xs={12}>
+          <Box sx={{ height: innerHeight - 50, width: "100%" }}>
+            {ready && (
+              <DataGridPro
+                autoHeight={true}
+                rows={rowsToUse}
+                columns={cols}
+                slots={{ toolbar: GridToolbar }}
+                slotProps={{
+                  toolbar: {
+                    showQuickFilter: true,
+                  },
+                }}
+                sx={{ "& .MuiDataGrid-row": { fontSize: fontSize } }}
+              />
+            )}
+          </Box>
+        </Grid>
+      </Grid>
+      <Dialog
+        fullWidth
+        maxWidth="xl"
+        onClose={() => setOpenWebdav(false)}
+        open={openWebdav}
+        title={currentDir}
+      >
+        <DialogTitle>
+          <IconButton
+            onClick={() => {
+              handleClick(parentDir);
+            }}
+            color={"info"}
+            sx={{ mr: 1 }}
+          >
+            <ArrowCircleUpTwoTone />
+          </IconButton>
+          <IconButton
+            onClick={() => {
+              setSelectedPath(parentDir);
+              setOpenWebdav(false);
+            }}
+            color={"info"}
+            sx={{ mr: 1 }}
+          >
+            <CheckCircleTwoTone />
+          </IconButton>
+          {currentDir}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ height: innerHeight - 200, width: "100%" }}>
+            <DataGridPro
+              rows={listOfFiles}
+              columns={fileCols}
+              density="compact"
+            />
+          </Box>
+          <Tooltip title={"Email technical programmers"}>
+            <Button
+              sx={{
+                color: "blue",
+                border: 1,
+                borderColor: "blue",
+                borderRadius: 1,
+                padding: 0.4,
+                float: "right",
+              }}
+              onClick={() => {
+                window.open(
+                  "mailto:qs_tech_prog@argenx.com?subject=Question&body=This email was sent from: " +
+                    encodeURIComponent(href) +
+                    "%0D%0A%0D%0AMy question is:",
+                  "_blank"
+                );
+              }}
+            >
+              Email
+            </Button>
+          </Tooltip>
+        </DialogContent>
+      </Dialog>
+      {/* Dialog with General info about this screen */}
+      <Dialog
+        fullWidth
+        maxWidth="xl"
+        onClose={() => setOpenInfo(false)}
+        open={openInfo}
+      >
+        <DialogTitle>Info about this screen</DialogTitle>
+        <DialogContent>
+          <Box sx={{ color: "blue", fontSize: 11 }}>
+            Decide where to take sdtm_last data from. gSDTM? column should have
+            one of 3 values:
+            <ul>
+              <li>NONE - meaning we don't copy anything to sdtm_last</li>
+              <li>
+                SDTM - means that we will copy SDTM data from the path specified
+                to sdtm_last. This will be done once by the sdtm_part3 job that
+                runs each day.
+              </li>
+              <li>
+                gSDTM - means that we will copy gSDTM data from the path
+                specified to sdtm_last. This will be done each time new data is
+                found by the sdtm_part3 job that runs each day.
+              </li>
+            </ul>
+          </Box>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
 export default App;

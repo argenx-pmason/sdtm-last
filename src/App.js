@@ -1,10 +1,10 @@
 import "./App.css";
 import React, { useEffect, useState } from "react";
 import local_rows from "./sdtm_for_studies.json";
+import local_user_holidays from "./user_holidays.json";
 import {
   Box,
   Grid,
-  Autocomplete,
   TextField,
   Button,
   Dialog,
@@ -14,6 +14,10 @@ import {
   AppBar,
   Toolbar,
   IconButton,
+  Alert,
+  Snackbar,
+  DialogActions,
+  InputAdornment,
 } from "@mui/material";
 import {
   ArrowCircleUpTwoTone,
@@ -21,6 +25,7 @@ import {
   Remove,
   Add,
   Save,
+  AccountCircle,
   Info,
   Search,
 } from "@mui/icons-material";
@@ -39,16 +44,38 @@ const App = () => {
     fileViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/tools/fileviewer/index.html?file=`,
     innerHeight = window.innerHeight,
     title = "SDTM for studies",
-    dataUrl =
-      webDavPrefix +
+    jsonPath =
       "/general/biostat/jobs/gadam_ongoing_studies/dev/output/sdtm_for_studies.json",
+    dataUrl = webDavPrefix + jsonPath,
+    usersUrl =
+      webDavPrefix + "/general/biostat/metadata/projects/rm/user_holidays.json",
     [rowsToUse, setRowsToUse] = useState([]),
+    [originalRows, setOriginalRows] = useState([]),
     options = [
       { label: "SDTM", value: "SDTM" },
       { label: "GSDTM", value: "GSDTM" },
       { label: "NONE", value: "NONE" },
     ],
     [ready, setReady] = useState(false),
+    saveUser = () => {
+      localStorage.setItem("username", tempUsername);
+      localStorage.setItem("userFullName", userFullName);
+      setOpenUserLogin(false);
+    },
+    [tempUsername, setTempUsername] = useState(""),
+    [userFullName, setUserFullName] = useState(
+      localStorage.getItem("userFullName")
+    ),
+    [openUserLogin, setOpenUserLogin] = useState(false),
+    [openSnackbar, setOpenSnackbar] = useState(false),
+    [showSaveButton, setShowSaveButton] = useState(false),
+    [userList, setUserList] = useState(null),
+    handleCloseSnackbar = (event, reason) => {
+      if (reason === "clickaway") {
+        return;
+      }
+      setOpenSnackbar(false);
+    },
     cols = [
       {
         field: "compound",
@@ -77,31 +104,15 @@ const App = () => {
       },
       {
         field: "gSDTMflag",
+        editable: true,
         headerName: "gSDTM?",
         width: 150,
-        renderCell: (cellValues) => {
-          const { row, value } = cellValues,
-            { id } = row;
-          return (
-            <Autocomplete
-              options={options}
-              disableCloseOnSelect
-              value={value}
-              isOptionEqualToValue={(option, value) => {
-                return option.label === value;
-              }}
-              onChange={(event, newValue) => {
-                rowsToUse[id].gSDTMflag = newValue.value;
-              }}
-              renderInput={(params) => (
-                <TextField {...params} label="Source" variant="standard" />
-              )}
-            />
-          );
-        },
+        type: "singleSelect",
+        valueOptions: options,
       },
       {
         field: "path",
+        editable: true,
         headerName: "Path",
         flex: 1,
         renderCell: (cellValues) => {
@@ -109,8 +120,12 @@ const App = () => {
             { id, new_study } = row;
           return (
             <Button
-              sx={{ backgroundColor: new_study === "Y" ? "yellow" : "white" }}
+              sx={{
+                fontSize: fontSize,
+                backgroundColor: new_study === "Y" ? "yellow" : "white",
+              }}
               onClick={() => {
+                console.log("id", id);
                 setSelectedId(id);
                 handleClick(value, id);
               }}
@@ -242,7 +257,7 @@ const App = () => {
     [selectedId, setSelectedId] = useState(null),
     handleClick = (path, id) => {
       setOpenWebdav(true);
-      setSelectedId(id);
+      if (id) setSelectedId(id);
       console.log("path", path, "id", id);
       getWebDav(path);
     },
@@ -251,8 +266,94 @@ const App = () => {
     [currentDir, setCurrentDir] = useState(""),
     [parentDir, setParentDir] = useState(""),
     [openWebdav, setOpenWebdav] = useState(false),
-    updateJsonFile = (dataUrl, rows) => {
-      console.log("dataUrl", dataUrl, "rows", rows);
+    [message, setMessage] = useState(null),
+    updateJsonFile = (file, content) => {
+      console.log("updateJsonFile - file:", file, "content:", content);
+      if (!file || !content) return;
+      // drop id from each row in content
+      const contentWithoutId = content.map((c) => {
+        // delete c.id;
+        return c;
+      });
+      let tempContent;
+      // handle inserting table into the right place in keyed object
+      tempContent = JSON.stringify(contentWithoutId);
+      // try to delete the file, in case it is there already, otherwise the PUT will not work
+      fetch(file, {
+        method: "DELETE",
+      })
+        .then((response) => {
+          fetch(file, {
+            method: "PUT",
+            headers: {
+              "Content-type": "application/json; charset=UTF-8",
+            },
+            body: tempContent,
+          })
+            .then((response) => {
+              setMessage(response.ok ? "File saved" : "File not saved");
+              setOpenSnackbar(true);
+              response.text().then(function (text) {
+                console.log("text", text);
+              });
+            })
+            .catch((err) => {
+              setMessage(err);
+              setOpenSnackbar(true);
+              console.log("PUT err: ", err);
+            });
+        })
+        .catch((err) => {
+          setMessage(
+            "DELETE was attempted before the new version was saved - but the DELETE failed. (see console)"
+          );
+          setOpenSnackbar(true);
+          console.log("DELETE err: ", err);
+        });
+    },
+    saveChanges = (dataUrl, rows) => {
+      let write = false;
+      rows.forEach((rowFromTable, currentId) => {
+        const id = originalRows.findIndex((r) => r.id === rowFromTable.id),
+          originalRow = originalRows[id];
+        // console.log(
+        //   "originalRows",
+        //   originalRows,
+        //   "rowFromTable",
+        //   rowFromTable,
+        //   "originalRow",
+        //   originalRow,
+        //   "id",
+        //   id
+        // );
+        let writeRow = false;
+        if (originalRow.gSDTMflag !== rowFromTable.gSDTMflag) {
+          console.log(
+            "gSDTMflag changed to: ",
+            rowFromTable.gSDTMflag,
+            ", from: ",
+            originalRow.gSDTMflag
+          );
+          write = true;
+          writeRow = true;
+        }
+        if (originalRow.path !== rowFromTable.path) {
+          console.log(
+            "path changed to: ",
+            rowFromTable.path,
+            ", from: ",
+            originalRow.path
+          );
+          write = true;
+          writeRow = true;
+        }
+        if (writeRow) {
+          rowFromTable.userFullName = userFullName;
+          rowFromTable.username = tempUsername;
+          rowFromTable.changed = new Date().toISOString();
+        }
+      });
+      if (write) updateJsonFile(dataUrl, rowsToUse);
     },
     [openInfo, setOpenInfo] = useState(false),
     getWebDav = async (dir) => {
@@ -413,17 +514,51 @@ const App = () => {
       );
     };
 
+  let username = localStorage.getItem("username");
+
   useEffect(() => {
-    if (rowsToUse.length === 0) return;
-    console.log("rowsToUse", rowsToUse);
+    if (username === null) {
+      setTempUsername("");
+      setOpenUserLogin(true);
+    } else {
+      setTempUsername(username);
+      setOpenUserLogin(false);
+      setOpenSnackbar(true);
+    }
+  }, [username]);
+
+  useEffect(() => {
+    // console.log("window", window);
+    if (userList === null) return;
+    const matchingUsers = userList.users.filter(
+      (r) => r.userid === tempUsername
+    );
+    if (matchingUsers.length > 0) {
+      setShowSaveButton(true);
+      setUserFullName(matchingUsers[0].Name);
+    } else {
+      setShowSaveButton(false);
+      setUserFullName("");
+    }
+    // eslint-disable-next-line
+  }, [tempUsername]);
+
+  useEffect(() => {
+    if (rowsToUse.length === 0 || ready) return;
+    // console.log("rowsToUse", rowsToUse);
     // add an id to each object in array
     rowsToUse.forEach((e, i) => {
       e.id = i;
       if (e.new_study === "Y" || e.visibleFlag === "N") e.sort = 1;
       else e.sort = 0;
     });
+    // make a copy of the original rows
+    const tempOR = JSON.parse(JSON.stringify(rowsToUse));
+    // console.log("tempOR", tempOR);
+    setOriginalRows(tempOR);
     // sort rowsToUse by sort and then by study_name
-    rowsToUse.sort((a, b) => {
+    let sorted = JSON.parse(JSON.stringify(rowsToUse));
+    sorted.sort((a, b) => {
       if (a.sort < b.sort) return 1;
       if (a.sort > b.sort) return -1;
       if (a.gSDTMflag === "NONE") return -1;
@@ -431,8 +566,9 @@ const App = () => {
       if (a.studyname > b.studyname) return 1;
       return 0;
     });
+    setRowsToUse(sorted);
     setReady(true);
-  }, [rowsToUse]);
+  }, [ready, rowsToUse]);
 
   useEffect(() => {
     if (!listOfFiles || listOfFiles.length === 0) return;
@@ -446,18 +582,17 @@ const App = () => {
   // update rowsToUse with selectedPath after the user has modified the path and clicked on the use button
   useEffect(() => {
     if (!selectedPath) return;
-    const ind = rowsToUse.findIndex((e) => e.id === selectedId);
-    rowsToUse[ind].path = selectedPath;
     console.log(
+      "rowsToUse",
+      rowsToUse,
       "selectedPath",
       selectedPath,
       "selectedId",
-      selectedId,
-      "ind",
-      ind,
-      "rowsToUse",
-      rowsToUse
+      selectedId
     );
+    const ind = rowsToUse.findIndex((e) => e.id === selectedId);
+    console.log("ind", ind);
+    rowsToUse[ind].path = selectedPath;
     setSelectedPath(null);
     // eslint-disable-next-line
   }, [selectedPath]);
@@ -465,15 +600,30 @@ const App = () => {
   // get data from local or remote
   useEffect(() => {
     if (mode === "local") {
+      console.log("assigning local test data");
       setRowsToUse(local_rows);
+      setUserList(local_user_holidays);
     } else {
       fetch(dataUrl)
         .then((response) => response.json())
         .then((data) => {
           setRowsToUse(data);
         });
+      fetch(usersUrl)
+        .then((response) => response.json())
+        .then((data) => {
+          setUserList(data);
+        });
     }
-  }, [dataUrl, mode]);
+  }, [dataUrl, usersUrl, mode]);
+
+  const processRowUpdate = (newRow) => {
+    const updatedRow = { ...newRow, isNew: false };
+    setRowsToUse(
+      rowsToUse.map((row) => (row.id === newRow.id ? updatedRow : row))
+    );
+    return updatedRow;
+  };
 
   return (
     <>
@@ -486,6 +636,7 @@ const App = () => {
               fontWeight: "bold",
               boxShadow: 3,
               fontSize: 16,
+              flexGrow: 1,
             }}
           >
             &nbsp;&nbsp;{title}&nbsp;&nbsp;
@@ -496,7 +647,8 @@ const App = () => {
               // disabled={!allowSave}
               sx={{ m: 1, ml: 2, fontSize: fontSize }}
               onClick={() => {
-                updateJsonFile(dataUrl, rowsToUse);
+                saveChanges(dataUrl, rowsToUse);
+                // updateJsonFile(dataUrl, rowsToUse);
               }}
               size="small"
               color="success"
@@ -550,7 +702,7 @@ const App = () => {
               <Add />
             </IconButton>
           </Tooltip>
-          <Box>{dataUrl}</Box>
+          <Box sx={{ flexGrow: 1 }}>{jsonPath}</Box>
           <Box sx={{ flexGrow: 1 }}></Box>
           <Tooltip title="Information about this screen">
             <IconButton
@@ -579,12 +731,87 @@ const App = () => {
                     showQuickFilter: true,
                   },
                 }}
+                processRowUpdate={processRowUpdate}
                 sx={{ "& .MuiDataGrid-row": { fontSize: fontSize } }}
               />
             )}
           </Box>
         </Grid>
       </Grid>
+      {/* dialog that prompts for a user name */}
+      {!username && (
+        <Dialog
+          fullWidth
+          maxWidth="sm"
+          onClose={() => setOpenUserLogin(false)}
+          open={openUserLogin}
+          title={"User Login"}
+        >
+          <DialogTitle>
+            <Box>
+              {" "}
+              {userFullName && userFullName.length > 0
+                ? `Hi ${userFullName}! Now you are recognized you can press SAVE.`
+                : "Who are you?"}
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            {" "}
+            <TextField
+              id="input-with-icon-textfield"
+              label="User Name"
+              placeholder="e.g. pmason"
+              value={tempUsername}
+              onChange={(e) => {
+                setTempUsername(e.target.value);
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <AccountCircle />
+                  </InputAdornment>
+                ),
+              }}
+              variant="standard"
+            />
+          </DialogContent>
+          <DialogActions>
+            {tempUsername &&
+              tempUsername > "" &&
+              userList.users &&
+              userList.users.length > 0 && (
+                <Button disabled={!showSaveButton} onClick={() => saveUser()}>
+                  Save
+                </Button>
+              )}
+          </DialogActions>
+        </Dialog>
+      )}
+      {tempUsername && (
+        <Snackbar
+          severity="success"
+          open={openSnackbar}
+          autoHideDuration={7000}
+          onClose={handleCloseSnackbar}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar}
+            severity="success"
+            sx={{ width: "100%" }}
+          >
+            Welcome 👨‍🦲 {userFullName} ({username})
+          </Alert>
+        </Snackbar>
+      )}
+      {message && (
+        <Snackbar
+          open={openSnackbar}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          message={message}
+        />
+      )}{" "}
       <Dialog
         fullWidth
         maxWidth="xl"

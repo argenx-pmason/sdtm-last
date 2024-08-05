@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogContent,
   Tooltip,
+  Link,
   AppBar,
   Toolbar,
   IconButton,
@@ -26,6 +27,7 @@ import {
   Add,
   Save,
   AccountCircle,
+  Visibility,
   Info,
   Search,
 } from "@mui/icons-material";
@@ -122,6 +124,7 @@ const App = () => {
             <Button
               sx={{
                 fontSize: fontSize,
+                // height: fontSize + 3,
                 backgroundColor: new_study === "Y" ? "yellow" : "white",
               }}
               onClick={() => {
@@ -144,6 +147,7 @@ const App = () => {
           return (
             <>
               <IconButton
+                sx={{ height: fontSize + 3, fontSize: fontSize }}
                 onClick={() => {
                   window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
                 }}
@@ -199,13 +203,18 @@ const App = () => {
           let cell;
           if (isDirectory)
             cell = (
-              <Button
-                onClick={() => {
-                  handleClick(path);
-                }}
-              >
-                {value}
-              </Button>
+              <Tooltip title={path}>
+                <Link
+                  onClick={() => {
+                    console.log("path", path, "value", value);
+                    handleClick(path);
+                  }}
+                  href="#"
+                  underline="hover"
+                >
+                  {value}
+                </Link>
+              </Tooltip>
             );
           else cell = <Box sx={{ color: "black" }}>{value}</Box>;
           return cell;
@@ -215,7 +224,8 @@ const App = () => {
         field: "fileType",
         headerName: "Use?",
         renderCell: (cellValues) => {
-          const { value } = cellValues,
+          const { row } = cellValues,
+            { value } = row,
             path =
               value.indexOf("/repo/") > 0
                 ? value.slice(value.indexOf("/repo/") + 5)
@@ -223,11 +233,21 @@ const App = () => {
           return (
             <IconButton
               onClick={() => {
+                console.log(
+                  "Use? button pressed: ",
+                  "path",
+                  path,
+                  "value",
+                  value,
+                  "row",
+                  row
+                );
                 setSelectedPath(path);
                 setOpenWebdav(false);
               }}
               color={"info"}
-              sx={{ mr: 1 }}
+              size="small"
+              sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
             >
               <CheckCircleTwoTone />
             </IconButton>
@@ -401,6 +421,20 @@ const App = () => {
             isDirectory: true,
             id: 2,
           },
+          {
+            value:
+              "https://xarprod.ondemand.sas.com/lsaf/webdav/repo/clinical/argx-113/cidp/argx-113-1902/dm/staging/transfers/2021-07-06_argx-113-1902_sdtm.zip",
+            fileType:
+              "/lsaf/webdav/repo/clinical/argx-113/cidp/argx-113-1902/dm/staging/transfers/2021-07-06_argx-113-1902_sdtm.zip",
+            label: "2021-07-06_argx-113-1902_sdtm.zip",
+            created: "2021-08-11T06:22:31Z",
+            modified: "Fri, 22 Apr 2022 15:55:52 GMT",
+            checkedOut: "No",
+            locked: "No",
+            version: null,
+            isDirectory: false,
+            id: 3,
+          },
         ]);
       } else await getDir(webDavPrefix + dir, 1, processXml);
     },
@@ -444,7 +478,7 @@ const App = () => {
             version = props["ns1:version"]
               ? props["ns1:version"]["#text"]
               : null,
-            fileType = path.split(".").pop(),
+            fileType = path.includes(".") ? path.split(".").pop() : "",
             partOfFile = {
               value: urlPrefix + path,
               fileType: fileType,
@@ -583,10 +617,11 @@ const App = () => {
   useEffect(() => {
     if (!selectedPath) return;
     console.log(
-      "rowsToUse",
-      rowsToUse,
+      "selectedPath has changed:",
       "selectedPath",
       selectedPath,
+      "rowsToUse",
+      rowsToUse,
       "selectedId",
       selectedId
     );
@@ -645,7 +680,7 @@ const App = () => {
             <Button
               variant="contained"
               // disabled={!allowSave}
-              sx={{ m: 1, ml: 2, fontSize: fontSize }}
+              sx={{ m: 1, ml: 2, fontSize: fontSize, height: fontSize + 3 }}
               onClick={() => {
                 saveChanges(dataUrl, rowsToUse);
                 // updateJsonFile(dataUrl, rowsToUse);
@@ -661,7 +696,7 @@ const App = () => {
             <Button
               variant="contained"
               // disabled={!allowSave}
-              sx={{ m: 1, ml: 2, fontSize: fontSize }}
+              sx={{ m: 1, ml: 2, fontSize: fontSize, height: fontSize + 3 }}
               onClick={() => {
                 window
                   .open(
@@ -676,6 +711,21 @@ const App = () => {
             >
               gSDTM
             </Button>
+          </Tooltip>
+          <Tooltip title="View JSON data using the view tool">
+            <IconButton
+              color="primary"
+              size="small"
+              onClick={() => {
+                window
+                  .open(
+                    `https://${server}/lsaf/filedownload/sdd%3A///general/biostat/tools/view/index.html?lsaf=/general/biostat/jobs/gadam_ongoing_studies/dev/output/sdtm_for_studies.json`
+                  )
+                  .focus();
+              }}
+            >
+              <Visibility />
+            </IconButton>
           </Tooltip>
           <Tooltip title="Smaller font">
             <IconButton
@@ -695,8 +745,8 @@ const App = () => {
               color="primary"
               size="small"
               onClick={() => {
-                setFontSize(fontSize + 1);
-                localStorage.setItem("fontSize", fontSize + 1);
+                setFontSize(fontSize + 3);
+                localStorage.setItem("fontSize", fontSize + 3);
               }}
             >
               <Add />
@@ -722,7 +772,9 @@ const App = () => {
           <Box sx={{ height: innerHeight - 50, width: "100%" }}>
             {ready && (
               <DataGridPro
-                autoHeight={true}
+                // autoHeight={true}
+                autoPageSize={true}
+                getRowHeight={() => "auto"}
                 rows={rowsToUse}
                 columns={cols}
                 slots={{ toolbar: GridToolbar }}
@@ -780,7 +832,11 @@ const App = () => {
               tempUsername > "" &&
               userList.users &&
               userList.users.length > 0 && (
-                <Button disabled={!showSaveButton} onClick={() => saveUser()}>
+                <Button
+                  sx={{ height: fontSize + 3 }}
+                  disabled={!showSaveButton}
+                  onClick={() => saveUser()}
+                >
                   Save
                 </Button>
               )}
@@ -831,11 +887,12 @@ const App = () => {
           </IconButton>
           <IconButton
             onClick={() => {
-              setSelectedPath(parentDir);
+              console.log("Use? button pressed: parentDir", currentDir);
+              setSelectedPath(currentDir);
               setOpenWebdav(false);
             }}
             color={"info"}
-            sx={{ mr: 1 }}
+            sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
           >
             <CheckCircleTwoTone />
           </IconButton>
@@ -846,6 +903,9 @@ const App = () => {
             <DataGridPro
               rows={listOfFiles}
               columns={fileCols}
+              autoHeight={true}
+              autoPageSize={true}
+              getRowHeight={() => "auto"}
               density="compact"
             />
           </Box>
@@ -858,6 +918,7 @@ const App = () => {
                 borderRadius: 1,
                 padding: 0.4,
                 float: "right",
+                height: fontSize + 3,
               }}
               onClick={() => {
                 window.open(

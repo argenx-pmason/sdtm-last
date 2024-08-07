@@ -663,15 +663,17 @@ const App = () => {
   return (
     <>
       <AppBar position="fixed">
-        <Toolbar variant="dense" sx={{ backgroundColor: "#cccccc" }}>
+        <Toolbar variant="dense" sx={{ backgroundColor: "#f7f7f7" }}>
           <Box
             sx={{
-              backgroundColor: "#eeeeee",
-              color: "green",
+              border: 1,
+              borderRadius: 2,
+              color: "black",
               fontWeight: "bold",
               boxShadow: 3,
-              fontSize: 16,
-              flexGrow: 1,
+              fontSize: 14,
+              height: 23,
+              padding: 0.3,
             }}
           >
             &nbsp;&nbsp;{title}&nbsp;&nbsp;

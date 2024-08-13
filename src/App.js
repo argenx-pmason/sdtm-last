@@ -741,7 +741,7 @@ const App = () => {
               <Remove />
             </IconButton>
           </Tooltip>
-          &nbsp;{fontSize}&nbsp;
+          <Box sx={{ color: "#0288d1" }}>&nbsp;{fontSize}&nbsp;</Box>
           <Tooltip title="Larger font">
             <IconButton
               color="primary"
@@ -945,22 +945,72 @@ const App = () => {
       >
         <DialogTitle>Info about this screen</DialogTitle>
         <DialogContent>
-          <Box sx={{ color: "blue", fontSize: 11 }}>
-            Decide where to take sdtm_last data from. gSDTM? column should have
-            one of 3 values:
-            <ul>
-              <li>NONE - meaning we don't copy anything to sdtm_last</li>
+          The table has the following columns:
+          <Box sx={{ color: "#0288d1", fontSize: 13 }}>
+            <ol>
               <li>
-                SDTM - means that we will copy SDTM data from the path specified
-                to sdtm_last. This will be done once by the sdtm_part3 job that
-                runs each day.
+                <b>Compound - </b>e.g. argx-113, argx-117, argx-119, etc.
               </li>
               <li>
-                gSDTM - means that we will copy gSDTM data from the path
-                specified to sdtm_last. This will be done each time new data is
-                found by the sdtm_part3 job that runs each day.
+                <b>Indication - </b>e.g. bp, mg, cidp, etc.
               </li>
-            </ul>
+              <li>
+                <b>Study - </b>e.g. 113-1802
+              </li>
+              <li>
+                <b>First visible - </b>Date study was first visible in this
+                system
+              </li>
+              <li>
+                <b>Last visibile - </b>Date study was last visible, which can
+                indicate that a study has become inaccessible due to being
+                hidden for unblinding (for example)
+              </li>
+              <li>
+                <b>Blocked - </b>Date the study was last blocked from use. This
+                is maintained when the study becomes visible again so that we
+                can see it was blocked in the past
+              </li>
+              <li>
+                <b>gSDTM - </b> Decide where to take sdtm_last data from. gSDTM?
+                column should have one of 3 values:
+                <ul>
+                  <li>
+                    <b>NONE</b> - meaning we don't copy anything to sdtm_last
+                  </li>
+                  <li>
+                    <b>SDTM</b> - means that we will copy SDTM data from the
+                    path specified to sdtm_last. This will be done once by the
+                    sdtm_part3 job that runs each day.
+                  </li>
+                  <li>
+                    <b>gSDTM</b> - means that we will copy gSDTM data from the
+                    path specified to sdtm_last. This will be done each time new
+                    data is found by the sdtm_part3 job that runs each day.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <b>Path - </b>Path chosen by user to get data from to copy to
+                sdtm_data. When a user saves this information we save the
+                date/time and userid in the JSON data, although it is not shown
+                in the table.
+              </li>
+              <li>
+                <b>FileViewer - </b>View the path in the File Viewer, which is
+                sometimes easier to then explore the file system to find the
+                right place set choose as a path.
+              </li>
+              <li>
+                <b>New? - </b>This is set to Y when the last load of data
+                discovered this study for the first time.
+              </li>
+              <li>
+                <b>Visible? - </b>This indicates that the study is visible in
+                the system. If it is not visible it is because it has been
+                blocked from view for some reason.
+              </li>
+            </ol>
           </Box>
         </DialogContent>
       </Dialog>

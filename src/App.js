@@ -19,6 +19,8 @@ import {
   Snackbar,
   DialogActions,
   InputAdornment,
+  Switch,
+  Autocomplete,
 } from "@mui/material";
 import {
   ArrowCircleUpTwoTone,
@@ -30,6 +32,7 @@ import {
   Visibility,
   Info,
   Search,
+  SearchTwoTone,
 } from "@mui/icons-material";
 import { DataGridPro, GridToolbar } from "@mui/x-data-grid-pro";
 import { getDir, xmlToJson } from "./utility";
@@ -53,11 +56,11 @@ const App = () => {
       webDavPrefix + "/general/biostat/metadata/projects/rm/user_holidays.json",
     [rowsToUse, setRowsToUse] = useState([]),
     [originalRows, setOriginalRows] = useState([]),
-    options = [
-      { label: "SDTM", value: "SDTM" },
-      { label: "GSDTM", value: "GSDTM" },
-      { label: "NONE", value: "NONE" },
-    ],
+    // options = [
+    //   { label: "SDTM", value: "SDTM" },
+    //   { label: "GSDTM", value: "GSDTM" },
+    //   { label: "NONE", value: "NONE" },
+    // ],
     [ready, setReady] = useState(false),
     saveUser = () => {
       localStorage.setItem("username", tempUsername);
@@ -91,26 +94,50 @@ const App = () => {
         field: "studyname",
         headerName: "Study",
         width: 120,
-      },
-      {
-        field: "dateFirstVisible",
-        headerName: "First visible",
-      },
-      {
-        field: "dateLastVisible",
-        headerName: "Last visible",
-      },
-      {
-        field: "blockedDate",
-        headerName: "Blocked",
+        renderCell: (cellValues) => {
+          const { value, row } = cellValues,
+            { new_study } = row;
+          return (
+            <Box
+              sx={{
+                fontSize: fontSize,
+                backgroundColor: new_study === "Y" ? "yellow" : null,
+              }}
+            >
+              {value}
+            </Box>
+          );
+        },
       },
       {
         field: "gSDTMflag",
         editable: true,
         headerName: "gSDTM?",
         width: 150,
-        type: "singleSelect",
-        valueOptions: options,
+        renderCell: (cellValues) => {
+          const { value, row } = cellValues,
+            { id } = row;
+          return (
+            <Switch
+              sx={{
+                fontSize: fontSize - 5,
+                // border: 0.1,
+                // padding: 0.5,
+                // mt: 0.1,
+                transform: "scale(0.75)",
+              }}
+              checked={value}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                console.log("id", id, "value", value, checked);
+                setSelectedId(id);
+                handleSwitch(checked, id);
+              }}
+            />
+          );
+        },
+        // type: "singleSelect",
+        // valueOptions: options,
       },
       {
         field: "path",
@@ -119,67 +146,126 @@ const App = () => {
         flex: 1,
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
-            { id, new_study } = row;
-          return (
-            <Button
-              sx={{
-                fontSize: fontSize,
-                // height: fontSize + 3,
-                backgroundColor: new_study === "Y" ? "yellow" : "white",
-              }}
-              onClick={() => {
-                console.log("id", id);
-                setSelectedId(id);
-                handleClick(value, id);
-              }}
-            >
-              {value}
-            </Button>
-          );
+            pathArray = value.split("/"),
+            { id, gSDTMflag } = row,
+            lastPart = pathArray.slice(5).join("/");
+          if (gSDTMflag) return <Box></Box>;
+          else if (lastPart.length > 0)
+            return (
+              <Box
+                sx={{
+                  color: "blue",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  console.log("id", id);
+                  setSelectedId(id);
+                  handleClick(value, id);
+                }}
+              >
+                {lastPart}
+              </Box>
+            );
+          else
+            return (
+              <Button
+                sx={{
+                  fontSize: fontSize,
+                  border: 0.1,
+                  padding: 0.5,
+                  mt: 0.5,
+                  height: fontSize + 4,
+                }}
+                onClick={() => {
+                  console.log("id", id);
+                  setSelectedId(id);
+                  handleClick(value, id);
+                }}
+              >
+                Choose path
+              </Button>
+            );
         },
       },
       {
         field: "id",
-        headerName: "FileViewer",
+        headerName: "FV",
         renderCell: (cellValues) => {
           const { row } = cellValues,
             { path } = row;
           return (
-            <>
-              <IconButton
-                sx={{ height: fontSize + 3, fontSize: fontSize }}
-                onClick={() => {
-                  window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
-                }}
-                size="small"
-              >
-                <Search />
-              </IconButton>
-            </>
+            <IconButton
+              sx={{ height: fontSize + 3, fontSize: fontSize }}
+              onClick={() => {
+                window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
+              }}
+              size="small"
+            >
+              <Search />
+            </IconButton>
           );
         },
       },
       {
-        field: "new_study",
-        headerName: "New?",
+        field: "dateFirstVisible",
+        headerName: "Age",
         renderCell: (cellValues) => {
-          const { value } = cellValues;
+          const { value } = cellValues,
+            d = new Date(value),
+            age = parseInt((new Date() - d) / (24 * 3600 * 1000));
+          return <Box>{age}</Box>;
+        },
+      },
+      {
+        field: "dateLastVisible",
+        headerName: "Last visible",
+        renderCell: (cellValues) => {
+          const { value, row } = cellValues,
+            { visibleFlag } = row;
           return (
-            <Box sx={{ backgroundColor: value === "Y" ? "yellow" : "white" }}>
+            <Box
+              sx={{
+                backgroundColor: visibleFlag === "N" ? "black" : null,
+                color: visibleFlag === "N" ? "white" : "black",
+              }}
+            >
               {value}
             </Box>
           );
         },
       },
       {
-        field: "visibleFlag",
-        headerName: "Visible?",
+        field: "status",
+        headerName: "Status",
+        width: 150,
         renderCell: (cellValues) => {
-          const { value } = cellValues;
+          const { value, row } = cellValues,
+            { id } = row;
+          // console.log("value", value, "row", row);
           return (
-            <Box sx={{ backgroundColor: value === "N" ? "#ffeeee" : "white" }}>
-              {value}
-            </Box>
+            <Autocomplete
+              value={value}
+              onChange={(event, newValue) => {
+                console.log(
+                  "id",
+                  id,
+                  "value",
+                  value,
+                  "event",
+                  event,
+                  "newValue",
+                  newValue
+                );
+                setSelectedId(id);
+                handleChoice(newValue, id);
+              }}
+              size="small"
+              options={["???", "planning", "startup", "ongoing", "final"]}
+              renderInput={(params) => (
+                <TextField {...params} variant="standard" />
+              )}
+            />
           );
         },
       },
@@ -222,7 +308,8 @@ const App = () => {
       },
       {
         field: "fileType",
-        headerName: "Use?",
+        headerName: "Use",
+        width:50,
         renderCell: (cellValues) => {
           const { row } = cellValues,
             { value } = row,
@@ -254,6 +341,40 @@ const App = () => {
           );
         },
       },
+      {
+        field: "version",
+        headerName: "FV",
+        width:50,
+        renderCell: (cellValues) => {
+          const { row } = cellValues,
+            { value } = row,
+            path =
+              value.indexOf("/repo/") > 0
+                ? value.slice(value.indexOf("/repo/") + 5)
+                : value;
+          return (
+            <IconButton
+              onClick={() => {
+                console.log(
+                  "FV button pressed: ",
+                  "path",
+                  path,
+                  "value",
+                  value,
+                  "row",
+                  row
+                );
+                window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
+              }}
+              color={"info"}
+              size="small"
+              sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
+            >
+              <SearchTwoTone />
+            </IconButton>
+          );
+        },
+      },
       { field: "created", headerName: "created", width: 200 },
       { field: "modified", headerName: "modified", width: 200 },
       {
@@ -276,10 +397,34 @@ const App = () => {
     ],
     [selectedId, setSelectedId] = useState(null),
     handleClick = (path, id) => {
+      const pathArray = path.split("/"),
+        fid = rowsToUse.findIndex((e) => e.id === id);
+      console.log("id", id, "fid", fid, "pathArray", pathArray);
+      if (pathArray.length < 5) return;
+      let pathToUse = path;
+      if (pathArray.length === 5 && id !== -99) {
+        pathToUse = path + "/dm/staging/transfers";
+      }
       setOpenWebdav(true);
       if (id) setSelectedId(id);
-      console.log("path", path, "id", id);
-      getWebDav(path);
+      console.log("pathToUse", pathToUse, "id", id);
+      getWebDav(pathToUse);
+    },
+    handleSwitch = (value, id) => {
+      if (id) setSelectedId(id);
+      console.log("value", value, "id", id);
+      const ind = rowsToUse.findIndex((e) => e.id === id);
+      console.log("id", id, "ind", ind, "value", value);
+      rowsToUse[ind].gSDTMflag = value;
+      if (value) rowsToUse[ind].path = "";
+      console.log("rowsToUse[ind]", rowsToUse[ind]);
+    },
+    handleChoice = (value, id) => {
+      if (id) setSelectedId(id);
+      console.log("value", value, "id", id);
+      const ind = rowsToUse.findIndex((e) => e.id === id);
+      console.log("id", id, "ind", ind, "value", value);
+      rowsToUse[ind].status = value;
     },
     [selectedPath, setSelectedPath] = useState(null),
     [listOfFiles, setListOfFiles] = useState([{ value: "topDir", id: 0 }]),
@@ -438,7 +583,7 @@ const App = () => {
         ]);
       } else await getDir(webDavPrefix + dir, 1, processXml);
     },
-    // [thisIsADir, setThisIsADir] = useState(false),
+    [validDir, setValidDir] = useState(true),
     processXml = (responseXML) => {
       // Here you can use the Data
       let dataXML = responseXML;
@@ -448,10 +593,10 @@ const App = () => {
         dataJSON["d:multistatus"]["d:response"].constructor.name !== "Array"
       ) {
         console.log("dataJSON", dataJSON);
-        // setThisIsADir(false);
+        setValidDir(false);
         return;
       }
-      // setThisIsADir(true);
+      setValidDir(true);
       const files = dataJSON["d:multistatus"]["d:response"].map((record) => {
           // console.log("record", record);
           let path = record["d:href"]["#text"],
@@ -585,6 +730,7 @@ const App = () => {
       e.id = i;
       if (e.new_study === "Y" || e.visibleFlag === "N") e.sort = 1;
       else e.sort = 0;
+      if (!("status" in e)) e.status = "???";
     });
     // make a copy of the original rows
     const tempOR = JSON.parse(JSON.stringify(rowsToUse));
@@ -651,6 +797,20 @@ const App = () => {
         });
     }
   }, [dataUrl, usersUrl, mode]);
+
+  useEffect(() => {
+    console.log("validDir", validDir);
+    if (!validDir) {
+      const fid = rowsToUse.findIndex((e) => e.id === selectedId),
+        targetDir = rowsToUse[fid]?.path,
+        studyLevel = targetDir
+          ? targetDir.split("/").slice(0, 5).join("/")
+          : null;
+      console.log("studyLevel", studyLevel, "targetDir", targetDir, "fid", fid);
+      if (studyLevel) handleClick(studyLevel, -99);
+    }
+    // eslint-disable-next-line
+  }, [validDir]);
 
   const processRowUpdate = (newRow) => {
     const updatedRow = { ...newRow, isNew: false };
@@ -754,7 +914,7 @@ const App = () => {
               <Add />
             </IconButton>
           </Tooltip>
-          <Box sx={{ flexGrow: 1 }}>{jsonPath}</Box>
+          <Box sx={{ flexGrow: 1, color: "#0288d1" }}>{jsonPath}</Box>
           <Box sx={{ flexGrow: 1 }}></Box>
           <Tooltip title="Information about this screen">
             <IconButton

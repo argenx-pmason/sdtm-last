@@ -1,0 +1,18 @@
+{
+  "hv": "Healthy Volunteers",
+  "mg": "Myastenia Gravis",
+  "itp": "Immune Thrombocytopenic Purpura",
+  "pemphigus": "Pemphigus Vulgaris",
+  "bp": "Bullous Pemphigoid",
+  "cidp": "Chronic Inflammatory Demyelinating Polyneuropathy",
+  "iim": "Idiopathic Inflammatory Myopathy",
+  "ln": "Lupus Nephritis",
+  "mmn": "Multifocal Motor Neuropathy",
+  "mn": "Membranous Nephropathy",
+  "pots": "Postural Orthostatic Tachycardia Syndrome",
+  "dgf": "Delayed Graft Function",
+  "sjogren": "Sjo Egrens Syndrome",
+  "als": "Amyotrophic Lateral Sclerosis",
+  "aml": "Acute Myeloid Leukemia",
+  "aav": "ANCA Associated Vasculitis"
+}

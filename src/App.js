@@ -37,6 +37,9 @@ import {
 import { DataGridPro, GridToolbar } from "@mui/x-data-grid-pro";
 import { getDir, xmlToJson } from "./utility";
 import { LicenseInfo } from "@mui/x-license-pro";
+import optionsForStatus from "./optionsForStatus";
+import optionsForPhase from "./optionsForPhase";
+import fullIndication from "./fullIndication";
 const App = () => {
   LicenseInfo.setLicenseKey(
     "6b1cacb920025860cc06bcaf75ee7a66Tz05NDY2MixFPTE3NTMyNTMxMDQwMDAsUz1wcm8sTE09c3Vic2NyaXB0aW9uLEtWPTI="
@@ -89,6 +92,16 @@ const App = () => {
       {
         field: "indication",
         headerName: "Indication",
+        renderCell: (cellValues) => {
+          const { value } = cellValues;
+          return (
+            <Tooltip
+              title={value in fullIndication ? fullIndication[value] : value}
+            >
+              {value}
+            </Tooltip>
+          );
+        },
       },
       {
         field: "studyname",
@@ -191,6 +204,7 @@ const App = () => {
       {
         field: "id",
         headerName: "FV",
+        width: 60,
         renderCell: (cellValues) => {
           const { row } = cellValues,
             { path } = row;
@@ -210,11 +224,12 @@ const App = () => {
       {
         field: "dateFirstVisible",
         headerName: "Age",
+        width: 50,
         renderCell: (cellValues) => {
           const { value } = cellValues,
             d = new Date(value),
             age = parseInt((new Date() - d) / (24 * 3600 * 1000));
-          return <Box>{age}</Box>;
+          return <Box>{age.toLocaleString()}</Box>;
         },
       },
       {
@@ -258,10 +273,10 @@ const App = () => {
                   newValue
                 );
                 setSelectedId(id);
-                handleChoice(newValue, id);
+                handleChoiceStatus(newValue, id);
               }}
               size="small"
-              options={["???", "planning", "startup", "ongoing", "final"]}
+              options={optionsForStatus}
               renderInput={(params) => (
                 <TextField {...params} variant="standard" />
               )}
@@ -269,6 +284,43 @@ const App = () => {
           );
         },
       },
+      {
+        field: "phase",
+        headerName: "Phase",
+        width: 60,
+        renderCell: (cellValues) => {
+          const { value, row } = cellValues,
+            { id } = row;
+          // console.log("value", value, "row", row);
+          return (
+            <Autocomplete
+              value={value}
+              onChange={(event, newValue) => {
+                console.log(
+                  "id",
+                  id,
+                  "value",
+                  value,
+                  "event",
+                  event,
+                  "newValue",
+                  newValue
+                );
+                setSelectedId(id);
+                handleChoicePhase(newValue, id);
+              }}
+              size="small"
+              options={optionsForPhase}
+              renderInput={(params) => (
+                <TextField {...params} variant="standard" />
+              )}
+            />
+          );
+        },
+      },
+      { field: "needsCopy", headerName: "To Copy", width: 70 },
+      { field: "dateCopied", headerName: "Date Copied", width: 100 },
+      { field: "statusOfLastCopy", headerName: "OK?", width: 70 },
     ],
     [fontSize, setFontSize] = useState(
       Number(localStorage.getItem("fontSize")) || 10
@@ -309,7 +361,7 @@ const App = () => {
       {
         field: "fileType",
         headerName: "Use",
-        width:50,
+        width: 50,
         renderCell: (cellValues) => {
           const { row } = cellValues,
             { value } = row,
@@ -330,6 +382,7 @@ const App = () => {
                   row
                 );
                 setSelectedPath(path);
+                setNeedsCopy(true);
                 setOpenWebdav(false);
               }}
               color={"info"}
@@ -344,7 +397,7 @@ const App = () => {
       {
         field: "version",
         headerName: "FV",
-        width:50,
+        width: 50,
         renderCell: (cellValues) => {
           const { row } = cellValues,
             { value } = row,
@@ -419,14 +472,22 @@ const App = () => {
       if (value) rowsToUse[ind].path = "";
       console.log("rowsToUse[ind]", rowsToUse[ind]);
     },
-    handleChoice = (value, id) => {
+    handleChoiceStatus = (value, id) => {
       if (id) setSelectedId(id);
       console.log("value", value, "id", id);
       const ind = rowsToUse.findIndex((e) => e.id === id);
       console.log("id", id, "ind", ind, "value", value);
       rowsToUse[ind].status = value;
     },
+    handleChoicePhase = (value, id) => {
+      if (id) setSelectedId(id);
+      console.log("value", value, "id", id);
+      const ind = rowsToUse.findIndex((e) => e.id === id);
+      console.log("id", id, "ind", ind, "value", value);
+      rowsToUse[ind].phase = value;
+    },
     [selectedPath, setSelectedPath] = useState(null),
+    [needsCopy, setNeedsCopy] = useState(null),
     [listOfFiles, setListOfFiles] = useState([{ value: "topDir", id: 0 }]),
     [currentDir, setCurrentDir] = useState(""),
     [parentDir, setParentDir] = useState(""),
@@ -481,17 +542,8 @@ const App = () => {
       rows.forEach((rowFromTable, currentId) => {
         const id = originalRows.findIndex((r) => r.id === rowFromTable.id),
           originalRow = originalRows[id];
-        // console.log(
-        //   "originalRows",
-        //   originalRows,
-        //   "rowFromTable",
-        //   rowFromTable,
-        //   "originalRow",
-        //   originalRow,
-        //   "id",
-        //   id
-        // );
         let writeRow = false;
+        // was gSDTM flag changed?
         if (originalRow.gSDTMflag !== rowFromTable.gSDTMflag) {
           console.log(
             "gSDTMflag changed to: ",
@@ -502,12 +554,24 @@ const App = () => {
           write = true;
           writeRow = true;
         }
+        // was path changed?
         if (originalRow.path !== rowFromTable.path) {
           console.log(
             "path changed to: ",
             rowFromTable.path,
             ", from: ",
             originalRow.path
+          );
+          write = true;
+          writeRow = true;
+        }
+        // was phase changed?
+        if (originalRow.phase !== rowFromTable.phase) {
+          console.log(
+            "phase changed to: ",
+            rowFromTable.phase,
+            ", from: ",
+            originalRow.phase
           );
           write = true;
           writeRow = true;
@@ -774,7 +838,9 @@ const App = () => {
     const ind = rowsToUse.findIndex((e) => e.id === selectedId);
     console.log("ind", ind);
     rowsToUse[ind].path = selectedPath;
+    rowsToUse[ind].needsCopy = needsCopy;
     setSelectedPath(null);
+    setNeedsCopy(null);
     // eslint-disable-next-line
   }, [selectedPath]);
 
@@ -1051,6 +1117,7 @@ const App = () => {
             onClick={() => {
               console.log("Use? button pressed: parentDir", currentDir);
               setSelectedPath(currentDir);
+              setNeedsCopy(true);
               setOpenWebdav(false);
             }}
             color={"info"}
@@ -1118,37 +1185,8 @@ const App = () => {
                 <b>Study - </b>e.g. 113-1802
               </li>
               <li>
-                <b>First visible - </b>Date study was first visible in this
-                system
-              </li>
-              <li>
-                <b>Last visibile - </b>Date study was last visible, which can
-                indicate that a study has become inaccessible due to being
-                hidden for unblinding (for example)
-              </li>
-              <li>
-                <b>Blocked - </b>Date the study was last blocked from use. This
-                is maintained when the study becomes visible again so that we
-                can see it was blocked in the past
-              </li>
-              <li>
-                <b>gSDTM - </b> Decide where to take sdtm_last data from. gSDTM?
-                column should have one of 3 values:
-                <ul>
-                  <li>
-                    <b>NONE</b> - meaning we don't copy anything to sdtm_last
-                  </li>
-                  <li>
-                    <b>SDTM</b> - means that we will copy SDTM data from the
-                    path specified to sdtm_last. This will be done once by the
-                    sdtm_part3 job that runs each day.
-                  </li>
-                  <li>
-                    <b>gSDTM</b> - means that we will copy gSDTM data from the
-                    path specified to sdtm_last. This will be done each time new
-                    data is found by the sdtm_part3 job that runs each day.
-                  </li>
-                </ul>
+                <b>gSDTM - </b> Switch <b>on</b> indicates whether we are
+                copying gSDTM. If <b>off</b> we are using SDTM.
               </li>
               <li>
                 <b>Path - </b>Path chosen by user to get data from to copy to
@@ -1157,18 +1195,33 @@ const App = () => {
                 in the table.
               </li>
               <li>
-                <b>FileViewer - </b>View the path in the File Viewer, which is
-                sometimes easier to then explore the file system to find the
+                <b>FV - </b>FileViewer - view the path in the File Viewer, which
+                is sometimes easier to then explore the file system to find the
                 right place set choose as a path.
               </li>
               <li>
-                <b>New? - </b>This is set to Y when the last load of data
-                discovered this study for the first time.
+                <b>Age - </b>How many days ince the study was first visibile
+                until now.
               </li>
               <li>
-                <b>Visible? - </b>This indicates that the study is visible in
-                the system. If it is not visible it is because it has been
-                blocked from view for some reason.
+                <b>Last visibile - </b>Date study was last visible, which can
+                indicate that a study has become inaccessible due to being
+                hidden for unblinding (for example)
+              </li>
+              <li>
+                <b>Status - </b>Study status which is one of: planning, startup,
+                ongoing, final.
+              </li>
+              <li>
+                <b>To Copy - </b>Indicates whether the data needs to be copied
+                or not.
+              </li>
+              <li>
+                <b>Date Copied - </b>Shows the date data was copied to
+                sdtm_last.
+              </li>
+              <li>
+                <b>Status - </b>Status of copy.
               </li>
             </ol>
           </Box>

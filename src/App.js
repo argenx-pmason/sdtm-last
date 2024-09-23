@@ -20,7 +20,7 @@ import {
   DialogActions,
   InputAdornment,
   Switch,
-  Autocomplete,
+  // Autocomplete,
 } from "@mui/material";
 import {
   ArrowCircleUpTwoTone,
@@ -33,12 +33,14 @@ import {
   Info,
   Search,
   SearchTwoTone,
+  Pageview,
 } from "@mui/icons-material";
 import { DataGridPro, GridToolbar } from "@mui/x-data-grid-pro";
 import { getDir, xmlToJson } from "./utility";
-import { LicenseInfo } from "@mui/x-license-pro";
-import optionsForStatus from "./optionsForStatus";
-import optionsForPhase from "./optionsForPhase";
+import { LicenseInfo } from '@mui/x-license';
+//TODO change imports to fetches, so we can update in PROD and see result in app
+// import optionsForStatus from "./optionsForStatus";
+// import optionsForPhase from "./optionsForPhase";
 import fullIndication from "./fullIndication";
 const App = () => {
   LicenseInfo.setLicenseKey(
@@ -50,15 +52,17 @@ const App = () => {
     server = href.split("//")[1].split("/")[0],
     webDavPrefix = urlPrefix + "/lsaf/webdav/repo",
     fileViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/tools/fileviewer/index.html?file=`,
+    logViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/tools/logviewer/index.html?log=`,
     innerHeight = window.innerHeight,
     title = "SDTM for studies",
     jsonPath =
-      "/general/biostat/jobs/gadam_ongoing_studies/dev/output/sdtm_for_studies.json",
+      "/general/biostat/metadata/projects/sdtm_for_studies.json",
     dataUrl = webDavPrefix + jsonPath,
     usersUrl =
       webDavPrefix + "/general/biostat/metadata/projects/rm/user_holidays.json",
     [rowsToUse, setRowsToUse] = useState([]),
     [originalRows, setOriginalRows] = useState([]),
+    [showMessage, setShowMessage] = useState(null),
     // options = [
     //   { label: "SDTM", value: "SDTM" },
     //   { label: "GSDTM", value: "GSDTM" },
@@ -76,6 +80,7 @@ const App = () => {
     ),
     [openUserLogin, setOpenUserLogin] = useState(false),
     [openSnackbar, setOpenSnackbar] = useState(false),
+    [openSnackbar2, setOpenSnackbar2] = useState(false),
     [showSaveButton, setShowSaveButton] = useState(false),
     [userList, setUserList] = useState(null),
     handleCloseSnackbar = (event, reason) => {
@@ -83,6 +88,12 @@ const App = () => {
         return;
       }
       setOpenSnackbar(false);
+    },
+    handleCloseSnackbar2 = (event, reason) => {
+      if (reason === "clickaway") {
+        return;
+      }
+      setOpenSnackbar2(false);
     },
     cols = [
       {
@@ -203,21 +214,40 @@ const App = () => {
       },
       {
         field: "id",
-        headerName: "FV",
+        headerName: "Fl Lg",
         width: 60,
         renderCell: (cellValues) => {
           const { row } = cellValues,
             { path } = row;
           return (
-            <IconButton
-              sx={{ height: fontSize + 3, fontSize: fontSize }}
-              onClick={() => {
-                window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
-              }}
-              size="small"
-            >
-              <Search />
-            </IconButton>
+            <>
+              <Search
+                sx={{
+                  height: fontSize + 30,
+                  fontSize: fontSize,
+                  "&:hover": { cursor: "pointer" },
+                }}
+                onClick={() => {
+                  window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
+                }}
+              />
+              <Pageview
+                sx={{
+                  height: fontSize + 30,
+                  ml: 0.5,
+                  "&:hover": { cursor: "pointer" },
+                  fontSize: fontSize,
+                }}
+                onClick={() => {
+                  window
+                    .open(
+                      `${logViewerPrefix}${path}/dm/g_sdtm/current/2_jobs/logs/cj_mapping_engine.log`,
+                      "_blank"
+                    )
+                    .focus();
+                }}
+              />
+            </>
           );
         },
       },
@@ -230,6 +260,7 @@ const App = () => {
             d = new Date(value),
             age = parseInt((new Date() - d) / (24 * 3600 * 1000));
           return <Box>{age.toLocaleString()}</Box>;
+          // return String(age).padStart(4, "0");
         },
       },
       {
@@ -250,81 +281,84 @@ const App = () => {
           );
         },
       },
-      {
-        field: "status",
-        headerName: "Status",
-        width: 150,
-        renderCell: (cellValues) => {
-          const { value, row } = cellValues,
-            { id } = row;
-          // console.log("value", value, "row", row);
-          return (
-            <Autocomplete
-              value={value}
-              onChange={(event, newValue) => {
-                console.log(
-                  "id",
-                  id,
-                  "value",
-                  value,
-                  "event",
-                  event,
-                  "newValue",
-                  newValue
-                );
-                setSelectedId(id);
-                handleChoiceStatus(newValue, id);
-              }}
-              size="small"
-              options={optionsForStatus}
-              renderInput={(params) => (
-                <TextField {...params} variant="standard" />
-              )}
-            />
-          );
-        },
-      },
-      {
-        field: "phase",
-        headerName: "Phase",
-        width: 60,
-        renderCell: (cellValues) => {
-          const { value, row } = cellValues,
-            { id } = row;
-          // console.log("value", value, "row", row);
-          return (
-            <Autocomplete
-              value={value}
-              onChange={(event, newValue) => {
-                console.log(
-                  "id",
-                  id,
-                  "value",
-                  value,
-                  "event",
-                  event,
-                  "newValue",
-                  newValue
-                );
-                setSelectedId(id);
-                handleChoicePhase(newValue, id);
-              }}
-              size="small"
-              options={optionsForPhase}
-              renderInput={(params) => (
-                <TextField {...params} variant="standard" />
-              )}
-            />
-          );
-        },
-      },
+      // {
+      //   field: "status",
+      //   headerName: "Status",
+      //   width: 150,
+      //   renderCell: (cellValues) => {
+      //     const { value, row } = cellValues,
+      //       { id } = row;
+      //     return (
+      //       <Tooltip
+      //         title={value === "final" ? "Final SDTM and ADaM received" : value}
+      //       >
+      //         <Autocomplete
+      //           value={value}
+      //           onChange={(event, newValue) => {
+      //             console.log(
+      //               "id",
+      //               id,
+      //               "value",
+      //               value,
+      //               "event",
+      //               event,
+      //               "newValue",
+      //               newValue
+      //             );
+      //             setSelectedId(id);
+      //             handleChoiceStatus(newValue, id);
+      //           }}
+      //           size="small"
+      //           options={optionsForStatus}
+      //           renderInput={(params) => (
+      //             <TextField {...params} variant="standard" />
+      //           )}
+      //         />
+      //       </Tooltip>
+      //     );
+      //   },
+      // },
+      // {
+      //   field: "phase",
+      //   headerName: "Phase",
+      //   width: 60,
+      //   renderCell: (cellValues) => {
+      //     const { value, row } = cellValues,
+      //       { id } = row;
+      //     return (
+      //       <Autocomplete
+      //         value={value}
+      //         onChange={(event, newValue) => {
+      //           console.log(
+      //             "id",
+      //             id,
+      //             "value",
+      //             value,
+      //             "event",
+      //             event,
+      //             "newValue",
+      //             newValue
+      //           );
+      //           setSelectedId(id);
+      //           handleChoicePhase(newValue, id);
+      //         }}
+      //         size="small"
+      //         options={optionsForPhase}
+      //         renderInput={(params) => (
+      //           <TextField {...params} variant="standard" />
+      //         )}
+      //       />
+      //     );
+      //   },
+      // },
       { field: "needsCopy", headerName: "To Copy", width: 70 },
-      { field: "dateCopied", headerName: "Date Copied", width: 100 },
-      { field: "statusOfLastCopy", headerName: "OK?", width: 70 },
+      { field: "datecopied", headerName: "Date Copied", width: 100 },
+      { field: "statusoflastcopy", headerName: "OK?", width: 70 },
     ],
     [fontSize, setFontSize] = useState(
       Number(localStorage.getItem("fontSize")) || 10
     ),
+    // columns used in popup letting users pick files/paths
     fileCols = [
       {
         field: "label",
@@ -382,7 +416,7 @@ const App = () => {
                   row
                 );
                 setSelectedPath(path);
-                setNeedsCopy(true);
+                setNeedsCopy("Y");
                 setOpenWebdav(false);
               }}
               color={"info"}
@@ -450,12 +484,14 @@ const App = () => {
     ],
     [selectedId, setSelectedId] = useState(null),
     handleClick = (path, id) => {
-      const pathArray = path.split("/"),
+      let pathArray = path.split("/"),
         fid = rowsToUse.findIndex((e) => e.id === id);
       console.log("id", id, "fid", fid, "pathArray", pathArray);
       if (pathArray.length < 5) return;
       let pathToUse = path;
-      if (pathArray.length === 5 && id !== -99) {
+      if (pathArray.length > 5) {
+        pathToUse = pathArray.slice(0, 5).join("/") + "/dm/staging/transfers";
+      } else if (pathArray.length === 5 && id !== -99) {
         pathToUse = path + "/dm/staging/transfers";
       }
       setOpenWebdav(true);
@@ -472,20 +508,20 @@ const App = () => {
       if (value) rowsToUse[ind].path = "";
       console.log("rowsToUse[ind]", rowsToUse[ind]);
     },
-    handleChoiceStatus = (value, id) => {
-      if (id) setSelectedId(id);
-      console.log("value", value, "id", id);
-      const ind = rowsToUse.findIndex((e) => e.id === id);
-      console.log("id", id, "ind", ind, "value", value);
-      rowsToUse[ind].status = value;
-    },
-    handleChoicePhase = (value, id) => {
-      if (id) setSelectedId(id);
-      console.log("value", value, "id", id);
-      const ind = rowsToUse.findIndex((e) => e.id === id);
-      console.log("id", id, "ind", ind, "value", value);
-      rowsToUse[ind].phase = value;
-    },
+    // handleChoiceStatus = (value, id) => {
+    //   if (id) setSelectedId(id);
+    //   console.log("value", value, "id", id);
+    //   const ind = rowsToUse.findIndex((e) => e.id === id);
+    //   console.log("id", id, "ind", ind, "value", value);
+    //   rowsToUse[ind].status = value;
+    // },
+    // handleChoicePhase = (value, id) => {
+    //   if (id) setSelectedId(id);
+    //   console.log("value", value, "id", id);
+    //   const ind = rowsToUse.findIndex((e) => e.id === id);
+    //   console.log("id", id, "ind", ind, "value", value);
+    //   rowsToUse[ind].phase = value;
+    // },
     [selectedPath, setSelectedPath] = useState(null),
     [needsCopy, setNeedsCopy] = useState(null),
     [listOfFiles, setListOfFiles] = useState([{ value: "topDir", id: 0 }]),
@@ -657,6 +693,8 @@ const App = () => {
         dataJSON["d:multistatus"]["d:response"].constructor.name !== "Array"
       ) {
         console.log("dataJSON", dataJSON);
+        setShowMessage("Not a valid directory");
+        setOpenSnackbar2(true);
         setValidDir(false);
         return;
       }
@@ -947,7 +985,7 @@ const App = () => {
               onClick={() => {
                 window
                   .open(
-                    `https://${server}/lsaf/filedownload/sdd%3A///general/biostat/tools/view/index.html?lsaf=/general/biostat/jobs/gadam_ongoing_studies/dev/output/sdtm_for_studies.json`
+                    `https://${server}/lsaf/filedownload/sdd%3A///general/biostat/tools/view/index.html?lsaf=/general/biostat/metadata/projects/sdtm_for_studies.json`
                   )
                   .focus();
               }}
@@ -1096,6 +1134,14 @@ const App = () => {
           message={message}
         />
       )}{" "}
+      {showMessage && (
+        <Snackbar
+          open={openSnackbar2}
+          autoHideDuration={2000}
+          onClose={handleCloseSnackbar2}
+          message={showMessage}
+        />
+      )}{" "}
       <Dialog
         fullWidth
         maxWidth="xl"
@@ -1117,7 +1163,7 @@ const App = () => {
             onClick={() => {
               console.log("Use? button pressed: parentDir", currentDir);
               setSelectedPath(currentDir);
-              setNeedsCopy(true);
+              setNeedsCopy("Y");
               setOpenWebdav(false);
             }}
             color={"info"}
@@ -1185,7 +1231,7 @@ const App = () => {
                 <b>Study - </b>e.g. 113-1802
               </li>
               <li>
-                <b>gSDTM - </b> Switch <b>on</b> indicates whether we are
+                <b>gSDTM? - </b> Switch <b>on</b> indicates whether we are
                 copying gSDTM. If <b>off</b> we are using SDTM.
               </li>
               <li>
@@ -1209,10 +1255,6 @@ const App = () => {
                 hidden for unblinding (for example)
               </li>
               <li>
-                <b>Status - </b>Study status which is one of: planning, startup,
-                ongoing, final.
-              </li>
-              <li>
                 <b>To Copy - </b>Indicates whether the data needs to be copied
                 or not.
               </li>
@@ -1221,7 +1263,7 @@ const App = () => {
                 sdtm_last.
               </li>
               <li>
-                <b>Status - </b>Status of copy.
+                <b>OK? - </b>Status of copy.
               </li>
             </ol>
           </Box>

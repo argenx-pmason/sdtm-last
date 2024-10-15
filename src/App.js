@@ -31,13 +31,13 @@ import {
   AccountCircle,
   Visibility,
   Info,
-  Search,
   SearchTwoTone,
-  Pageview,
+  FileCopyTwoTone,
+  ViewComfy,
 } from "@mui/icons-material";
 import { DataGridPro, GridToolbar } from "@mui/x-data-grid-pro";
 import { getDir, xmlToJson } from "./utility";
-import { LicenseInfo } from '@mui/x-license';
+import { LicenseInfo } from "@mui/x-license";
 //TODO change imports to fetches, so we can update in PROD and see result in app
 // import optionsForStatus from "./optionsForStatus";
 // import optionsForPhase from "./optionsForPhase";
@@ -55,8 +55,7 @@ const App = () => {
     logViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/tools/logviewer/index.html?log=`,
     innerHeight = window.innerHeight,
     title = "SDTM for studies",
-    jsonPath =
-      "/general/biostat/metadata/projects/sdtm_for_studies.json",
+    jsonPath = "/general/biostat/metadata/projects/sdtm_for_studies.json",
     dataUrl = webDavPrefix + jsonPath,
     usersUrl =
       webDavPrefix + "/general/biostat/metadata/projects/rm/user_holidays.json",
@@ -134,7 +133,7 @@ const App = () => {
         },
       },
       {
-        field: "gSDTMflag",
+        field: "gsdtmflag",
         editable: true,
         headerName: "gSDTM?",
         width: 150,
@@ -150,13 +149,14 @@ const App = () => {
                 // mt: 0.1,
                 transform: "scale(0.75)",
               }}
-              checked={value}
+              checked={value || value === 1 || value === "Y"}
               onChange={(event) => {
                 const checked = event.target.checked;
                 console.log("id", id, "value", value, checked);
                 setSelectedId(id);
                 handleSwitch(checked, id);
               }}
+              disabled
             />
           );
         },
@@ -171,9 +171,9 @@ const App = () => {
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
             pathArray = value.split("/"),
-            { id, gSDTMflag } = row,
+            { id, gsdtmflag } = row,
             lastPart = pathArray.slice(5).join("/");
-          if (gSDTMflag) return <Box></Box>;
+          if (gsdtmflag) return <Box></Box>;
           else if (lastPart.length > 0)
             return (
               <Box
@@ -214,40 +214,50 @@ const App = () => {
       },
       {
         field: "id",
-        headerName: "Fl Lg",
-        width: 60,
+        headerName: "Files",
+        width: 50,
         renderCell: (cellValues) => {
           const { row } = cellValues,
             { path } = row;
           return (
-            <>
-              <Search
+            <IconButton>
+              <FileCopyTwoTone
                 sx={{
-                  height: fontSize + 30,
-                  fontSize: fontSize,
                   "&:hover": { cursor: "pointer" },
+                  fontSize: fontSize + 3,
                 }}
                 onClick={() => {
                   window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
                 }}
               />
-              <Pageview
+            </IconButton>
+          );
+        },
+      },
+      {
+        field: "status",
+        headerName: "Log",
+        width: 50,
+        renderCell: (cellValues) => {
+          const { row } = cellValues,
+            { compound, indication, studyname } = row;
+          return (
+            <IconButton>
+              <ViewComfy
                 sx={{
-                  height: fontSize + 30,
-                  ml: 0.5,
                   "&:hover": { cursor: "pointer" },
-                  fontSize: fontSize,
+                  fontSize: fontSize + 3,
                 }}
                 onClick={() => {
                   window
                     .open(
-                      `${logViewerPrefix}${path}/dm/g_sdtm/current/2_jobs/logs/cj_mapping_engine.log`,
+                      `${logViewerPrefix}/clinical/${compound}/${indication}/${studyname}/dm/g_sdtm/current/2_jobs/logs/cj_mapping_engine.log`,
                       "_blank"
                     )
                     .focus();
                 }}
               />
-            </>
+            </IconButton>
           );
         },
       },
@@ -372,6 +382,7 @@ const App = () => {
               url.indexOf("/repo/") > 0
                 ? url.slice(url.indexOf("/repo/") + 5)
                 : value;
+          // console.log("url", url, "path", path);
           let cell;
           if (isDirectory)
             cell = (
@@ -388,7 +399,12 @@ const App = () => {
                 </Link>
               </Tooltip>
             );
-          else cell = <Box sx={{ color: "black" }}>{value}</Box>;
+          else
+            cell = (
+              <Tooltip title={path}>
+                <Box sx={{ color: "black" }}>{value}</Box>
+              </Tooltip>
+            );
           return cell;
         },
       },
@@ -403,29 +419,31 @@ const App = () => {
               value.indexOf("/repo/") > 0
                 ? value.slice(value.indexOf("/repo/") + 5)
                 : value;
-          return (
-            <IconButton
-              onClick={() => {
-                console.log(
-                  "Use? button pressed: ",
-                  "path",
-                  path,
-                  "value",
-                  value,
-                  "row",
-                  row
-                );
-                setSelectedPath(path);
-                setNeedsCopy("Y");
-                setOpenWebdav(false);
-              }}
-              color={"info"}
-              size="small"
-              sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
-            >
-              <CheckCircleTwoTone />
-            </IconButton>
-          );
+          if (value.endsWith(".zip"))
+            return (
+              <IconButton
+                onClick={() => {
+                  console.log(
+                    "Use button pressed: ",
+                    "path",
+                    path,
+                    "value",
+                    value,
+                    "row",
+                    row
+                  );
+                  setSelectedPath(path);
+                  setNeedsCopy("Y");
+                  setOpenWebdav(false);
+                }}
+                color={"info"}
+                size="small"
+                sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
+              >
+                <CheckCircleTwoTone />
+              </IconButton>
+            );
+          else return null;
         },
       },
       {
@@ -484,12 +502,41 @@ const App = () => {
     ],
     [selectedId, setSelectedId] = useState(null),
     handleClick = (path, id) => {
-      let pathArray = path.split("/"),
+      let pathArray = path.split("/").filter((e, ind) => ind === 0 || e),
         fid = rowsToUse.findIndex((e) => e.id === id);
-      console.log("id", id, "fid", fid, "pathArray", pathArray);
-      if (pathArray.length < 5) return;
+      console.log(
+        "id",
+        id,
+        "fid",
+        fid,
+        "rowsToUse",
+        rowsToUse,
+        "path",
+        path,
+        "pathArray",
+        pathArray
+      );
       let pathToUse = path;
-      if (pathArray.length > 5) {
+      const row = rowsToUse[fid],
+        compound = row?.compound || pathArray[2],
+        indication = row?.indication || pathArray[3],
+        studyname = row?.studyname || pathArray[4];
+      console.log(
+        "row",
+        row,
+        "compound",
+        compound,
+        "indication",
+        indication,
+        "studyname",
+        studyname
+      );
+      if (pathArray.length < 5) {
+        pathToUse = `/clinical/${compound}/${indication}/${studyname}/dm/staging/transfers`;
+        console.log("pathToUse", pathToUse);
+      } else if (pathArray.length > 8) {
+        pathToUse = pathArray.join("/");
+      } else if (pathArray.length > 5) {
         pathToUse = pathArray.slice(0, 5).join("/") + "/dm/staging/transfers";
       } else if (pathArray.length === 5 && id !== -99) {
         pathToUse = path + "/dm/staging/transfers";
@@ -504,8 +551,8 @@ const App = () => {
       console.log("value", value, "id", id);
       const ind = rowsToUse.findIndex((e) => e.id === id);
       console.log("id", id, "ind", ind, "value", value);
-      rowsToUse[ind].gSDTMflag = value;
-      if (value) rowsToUse[ind].path = "";
+      rowsToUse[ind].gsdtmflag = value;
+      if (value || value === 1 || value === "Y") rowsToUse[ind].path = "";
       console.log("rowsToUse[ind]", rowsToUse[ind]);
     },
     // handleChoiceStatus = (value, id) => {
@@ -580,12 +627,12 @@ const App = () => {
           originalRow = originalRows[id];
         let writeRow = false;
         // was gSDTM flag changed?
-        if (originalRow.gSDTMflag !== rowFromTable.gSDTMflag) {
+        if (originalRow.gsdtmflag !== rowFromTable.gsdtmflag) {
           console.log(
-            "gSDTMflag changed to: ",
-            rowFromTable.gSDTMflag,
+            "gsdtmflag changed to: ",
+            rowFromTable.gsdtmflag,
             ", from: ",
-            originalRow.gSDTMflag
+            originalRow.gsdtmflag
           );
           write = true;
           writeRow = true;
@@ -843,7 +890,7 @@ const App = () => {
     sorted.sort((a, b) => {
       if (a.sort < b.sort) return 1;
       if (a.sort > b.sort) return -1;
-      if (a.gSDTMflag === "NONE") return -1;
+      if (a.gsdtmflag === "NONE") return -1;
       if (a.studyname < b.studyname) return -1;
       if (a.studyname > b.studyname) return 1;
       return 0;
@@ -855,8 +902,16 @@ const App = () => {
   useEffect(() => {
     if (!listOfFiles || listOfFiles.length === 0) return;
     const path = listOfFiles[0].value.slice(49),
-      tempCurrentDir = path.split("/").slice(0, -2).join("/"),
-      tempParentDir = path.split("/").slice(0, -3).join("/");
+      tempCurrentDir = path.split("/").slice(0, -1).join("/"),
+      tempParentDir = path.split("/").slice(0, -2).join("/");
+    console.log(
+      "path",
+      path,
+      "tempCurrentDir",
+      tempCurrentDir,
+      "tempParentDir",
+      tempParentDir
+    );
     setCurrentDir(tempCurrentDir);
     setParentDir(tempParentDir);
   }, [listOfFiles]);
@@ -1147,7 +1202,7 @@ const App = () => {
         maxWidth="xl"
         onClose={() => setOpenWebdav(false)}
         open={openWebdav}
-        title={currentDir}
+        title={parentDir}
       >
         <DialogTitle>
           <IconButton
@@ -1159,9 +1214,9 @@ const App = () => {
           >
             <ArrowCircleUpTwoTone />
           </IconButton>
-          <IconButton
+          {/* <IconButton
             onClick={() => {
-              console.log("Use? button pressed: parentDir", currentDir);
+              console.log("Use button pressed: parentDir", currentDir);
               setSelectedPath(currentDir);
               setNeedsCopy("Y");
               setOpenWebdav(false);
@@ -1170,7 +1225,7 @@ const App = () => {
             sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
           >
             <CheckCircleTwoTone />
-          </IconButton>
+          </IconButton> */}
           {currentDir}
         </DialogTitle>
         <DialogContent>
@@ -1267,6 +1322,27 @@ const App = () => {
               </li>
             </ol>
           </Box>
+          <Tooltip title={"Open User Guide"}>
+            <Button
+              sx={{
+                color: "blue",
+                border: 1,
+                borderColor: "blue",
+                borderRadius: 1,
+                padding: 0.4,
+                float: "right",
+                height: fontSize + 3,
+              }}
+              onClick={() => {
+                window.open(
+                  "https://argenxbvba.sharepoint.com/:w:/r/sites/Biostatistics/_layouts/15/Doc.aspx?sourcedoc=%7B4FC2CAE8-FDC0-4344-A4FC-0B3E97DB66D0%7D&file=sdtm-last%20user%20guide.docx",
+                  "_blank"
+                );
+              }}
+            >
+              User Guide
+            </Button>
+          </Tooltip>
         </DialogContent>
       </Dialog>
     </>

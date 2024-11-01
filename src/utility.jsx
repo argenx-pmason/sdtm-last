@@ -43,13 +43,17 @@ export const xmlToJson = (xml) => {
   return obj;
 };
 
-export const getDir = async (url, depth, callback) => {
+export const getDir = async (url, depth, callback, errorCallback) => {
   console.log("getDir", url, depth);
   // Create an XMLHttpRequest object
   const xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function () {
-    if (this.readyState === 4 && (this.status === 207 || this.status === 200)) {
-      callback(this);
+    if (this.readyState === 4) {
+      if (this.status === 207 || this.status === 200) {
+        callback(this);
+      } else {
+        errorCallback(this);
+      }
     }
   };
   // Send a request

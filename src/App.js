@@ -1,7 +1,7 @@
 import "./App.css";
 import React, { useEffect, useState } from "react";
 import local_rows from "./sdtm_for_studies.json";
-import local_user_holidays from "./user_holidays.json";
+import local_user_list from "./folder_access_request.json";
 import {
   Box,
   Grid,
@@ -18,8 +18,12 @@ import {
   Alert,
   Snackbar,
   DialogActions,
+  Radio,
+  FormControlLabel,
+  RadioGroup,
   InputAdornment,
   Switch,
+  Fade,
   // Autocomplete,
 } from "@mui/material";
 import {
@@ -34,8 +38,20 @@ import {
   SearchTwoTone,
   FileCopyTwoTone,
   ViewComfy,
+  EmailTwoTone,
+  ViewCozy,
+  ViewHeadline,
+  ContentCopyTwoTone,
 } from "@mui/icons-material";
-import { DataGridPro, GridToolbar } from "@mui/x-data-grid-pro";
+import {
+  DataGridPro,
+  // GridToolbar,
+  useGridApiRef,
+  GridToolbarExport,
+  GridToolbarContainer,
+  GridToolbarQuickFilter,
+  GridToolbarFilterButton,
+} from "@mui/x-data-grid-pro";
 import { getDir, xmlToJson } from "./utility";
 import { LicenseInfo } from "@mui/x-license";
 //TODO change imports to fetches, so we can update in PROD and see result in app
@@ -47,6 +63,7 @@ const App = () => {
     "6b1cacb920025860cc06bcaf75ee7a66Tz05NDY2MixFPTE3NTMyNTMxMDQwMDAsUz1wcm8sTE09c3Vic2NyaXB0aW9uLEtWPTI="
   );
   const urlPrefix = window.location.protocol + "//" + window.location.host,
+    apiRef = useGridApiRef(),
     { href } = window.location,
     mode = href.startsWith("http://localhost") ? "local" : "remote",
     server = href.split("//")[1].split("/")[0],
@@ -58,10 +75,14 @@ const App = () => {
     jsonPath = "/general/biostat/metadata/projects/sdtm_for_studies.json",
     dataUrl = webDavPrefix + jsonPath,
     usersUrl =
-      webDavPrefix + "/general/biostat/metadata/projects/rm/user_holidays.json",
+      webDavPrefix +
+      "/general/biostat/metadata/projects/folder_access_request.json",
     [rowsToUse, setRowsToUse] = useState([]),
     [originalRows, setOriginalRows] = useState([]),
     [showMessage, setShowMessage] = useState(null),
+    [showGsdtmSwitch, setShowGsdtmSwitch] = useState(false),
+    // [showOngoingStudies, setShowOngoingStudies] = useState(true),
+    // [filterModel, setFilterModel] = useState({ items: [] }),
     // options = [
     //   { label: "SDTM", value: "SDTM" },
     //   { label: "GSDTM", value: "GSDTM" },
@@ -82,6 +103,262 @@ const App = () => {
     [openSnackbar2, setOpenSnackbar2] = useState(false),
     [showSaveButton, setShowSaveButton] = useState(false),
     [userList, setUserList] = useState(null),
+    [radioValue, setRadioValue] = useState("all"),
+    [needToSave, setNeedToSave] = useState(false),
+    [flash, setFlash] = useState(false),
+    [selectedCompound, setSelectedCompound] = useState(""),
+    CustomToolbar = () => {
+      return (
+        <GridToolbarContainer>
+          <GridToolbarFilterButton />
+          <GridToolbarExport />
+          <RadioGroup
+            name="radio1"
+            value={radioValue}
+            row
+            onChange={(e) => {
+              setRadioValue(e.target.value);
+              const f = apiRef.current,
+                model = f.state.filter.filterModel,
+                filter =
+                  e.target.value === "notfinal"
+                    ? [
+                        {
+                          field: "status",
+                          operator: "doesNotEqual",
+                          value: "final",
+                          id: 1,
+                        },
+                      ]
+                    : e.target.value === "ongoing"
+                    ? [
+                        {
+                          field: "status",
+                          operator: "equals",
+                          value: "ongoing",
+                          id: 1,
+                        },
+                      ]
+                    : e.target.value === "all"
+                    ? [
+                        {
+                          field: "status",
+                          operator: "equals",
+                          value: "",
+                          id: 1,
+                        },
+                      ]
+                    : [];
+              console.log("f", f, "model", model, "filter", filter);
+              apiRef.current.upsertFilterItems(filter);
+            }}
+          >
+            <FormControlLabel
+              value="ongoing"
+              control={<Radio />}
+              label="Ongoing"
+            />
+            <FormControlLabel
+              value="notfinal"
+              control={<Radio />}
+              label="Not Final"
+            />
+            <FormControlLabel value="all" control={<Radio />} label="All" />
+          </RadioGroup>
+          <Tooltip title="Compound argx-110">
+            <Button
+              variant={selectedCompound === "110" ? "contained" : "outlined"}
+              onClick={() => {
+                setSelectedCompound("110");
+                const f = apiRef.current,
+                  model = f.state.filter.filterModel,
+                  currentFilter = apiRef.current.state.filter.filterModel.items,
+                  newFilter = [
+                    ...currentFilter,
+                    {
+                      field: "compound",
+                      operator: "equals",
+                      value: "argx-110",
+                      id: 2,
+                    },
+                  ];
+                console.log(
+                  "f",
+                  f,
+                  "model",
+                  model,
+                  "currentFilter",
+                  currentFilter,
+                  "newFilter",
+                  newFilter
+                );
+                apiRef.current.upsertFilterItems(newFilter);
+              }}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              color="info"
+            >
+              110
+            </Button>
+          </Tooltip>
+          <Tooltip title="Compound argx-113">
+            <Button
+              variant={selectedCompound === "113" ? "contained" : "outlined"}
+              onClick={() => {
+                setSelectedCompound("113");
+                const f = apiRef.current,
+                  model = f.state.filter.filterModel,
+                  currentFilter = apiRef.current.state.filter.filterModel.items,
+                  newFilter = [
+                    ...currentFilter,
+                    {
+                      field: "compound",
+                      operator: "equals",
+                      value: "argx-113",
+                      id: 2,
+                    },
+                  ];
+                console.log(
+                  "f",
+                  f,
+                  "model",
+                  model,
+                  "currentFilter",
+                  currentFilter,
+                  "newFilter",
+                  newFilter
+                );
+                apiRef.current.upsertFilterItems(newFilter);
+              }}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              color="info"
+            >
+              113
+            </Button>
+          </Tooltip>
+          <Tooltip title="Compound argx-117">
+            <Button
+              variant={selectedCompound === "117" ? "contained" : "outlined"}
+              onClick={() => {
+                setSelectedCompound("117");
+                const f = apiRef.current,
+                  model = f.state.filter.filterModel,
+                  currentFilter = apiRef.current.state.filter.filterModel.items,
+                  newFilter = [
+                    ...currentFilter,
+                    {
+                      field: "compound",
+                      operator: "equals",
+                      value: "argx-117",
+                      id: 2,
+                    },
+                  ];
+                console.log(
+                  "f",
+                  f,
+                  "model",
+                  model,
+                  "currentFilter",
+                  currentFilter,
+                  "newFilter",
+                  newFilter
+                );
+                apiRef.current.upsertFilterItems(newFilter);
+              }}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              color="info"
+            >
+              117
+            </Button>
+          </Tooltip>
+          <Tooltip title="Compound argx-119">
+            <Button
+              variant={selectedCompound === "119" ? "contained" : "outlined"}
+              onClick={() => {
+                setSelectedCompound("119");
+                const f = apiRef.current,
+                  model = f.state.filter.filterModel,
+                  currentFilter = apiRef.current.state.filter.filterModel.items,
+                  newFilter = [
+                    ...currentFilter,
+                    {
+                      field: "compound",
+                      operator: "equals",
+                      value: "argx-119",
+                      id: 2,
+                    },
+                  ];
+                console.log(
+                  "f",
+                  f,
+                  "model",
+                  model,
+                  "currentFilter",
+                  currentFilter,
+                  "newFilter",
+                  newFilter
+                );
+                apiRef.current.upsertFilterItems(newFilter);
+              }}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              color="info"
+            >
+              119
+            </Button>
+          </Tooltip>{" "}
+          <Tooltip title="All Compounds">
+            <Button
+              variant={selectedCompound === "" ? "contained" : "outlined"}
+              onClick={() => {
+                setSelectedCompound("");
+                const f = apiRef.current,
+                  model = f.state.filter.filterModel,
+                  currentFilter = apiRef.current.state.filter.filterModel.items,
+                  newFilter = [
+                    ...currentFilter,
+                    {
+                      field: "compound",
+                      operator: "equals",
+                      value: "",
+                      id: 2,
+                    },
+                  ];
+                console.log(
+                  "f",
+                  f,
+                  "model",
+                  model,
+                  "currentFilter",
+                  currentFilter,
+                  "newFilter",
+                  newFilter
+                );
+                apiRef.current.upsertFilterItems(newFilter);
+              }}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              color="info"
+            >
+              All
+            </Button>
+          </Tooltip>
+          {/* <Tooltip title="Clear filters to show all data">
+            <Button
+              color="info"
+              variant="outlined"
+              size="small"
+              key={"clear"}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              onClick={(e) => {
+                apiRef.current.upsertFilterItems([]);
+              }}
+            >
+              Clear
+            </Button>
+          </Tooltip> */}
+          <Box sx={{ flexGrow: 1 }} />
+          <GridToolbarQuickFilter />
+        </GridToolbarContainer>
+      );
+    },
     handleCloseSnackbar = (event, reason) => {
       if (reason === "clickaway") {
         return;
@@ -98,17 +375,59 @@ const App = () => {
       {
         field: "compound",
         headerName: "Compound",
+        renderCell: (cellValues) => {
+          const { value, row } = cellValues,
+            { new_study, visibleFlag, days_since_last_ae_refresh } = row;
+          return (
+            <Tooltip
+              title={
+                "Days since last AE refresh: " + days_since_last_ae_refresh
+              }
+            >
+              <Box
+                sx={{
+                  backgroundColor:
+                    new_study === "Y"
+                      ? "#e6ffe6"
+                      : visibleFlag === "N"
+                      ? "black"
+                      : days_since_last_ae_refresh > 28
+                      ? "#fff5e6"
+                      : null,
+                  color: visibleFlag === "N" ? "white" : "black",
+                }}
+              >
+                {value}
+              </Box>
+            </Tooltip>
+          );
+        },
       },
       {
         field: "indication",
         headerName: "Indication",
         renderCell: (cellValues) => {
-          const { value } = cellValues;
+          const { value, row } = cellValues,
+            { new_study, visibleFlag, days_since_last_ae_refresh } = row;
           return (
             <Tooltip
               title={value in fullIndication ? fullIndication[value] : value}
             >
-              {value}
+              <Box
+                sx={{
+                  backgroundColor:
+                    visibleFlag === "N"
+                      ? "black"
+                      : new_study === "Y"
+                      ? "#e6ffe6"
+                      : days_since_last_ae_refresh > 28
+                      ? "#fff5e6"
+                      : null,
+                  color: visibleFlag === "N" ? "white" : "black",
+                }}
+              >
+                {value}
+              </Box>
             </Tooltip>
           );
         },
@@ -119,24 +438,62 @@ const App = () => {
         width: 120,
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
-            { new_study } = row;
+            {
+              new_study,
+              visibleFlag,
+              protocol_name,
+              days_since_last_ae_refresh,
+            } = row;
           return (
-            <Box
-              sx={{
-                fontSize: fontSize,
-                backgroundColor: new_study === "Y" ? "yellow" : null,
-              }}
-            >
-              {value}
-            </Box>
+            <Tooltip title={protocol_name}>
+              <Box
+                sx={{
+                  fontSize: fontSize,
+                  backgroundColor:
+                    visibleFlag === "N"
+                      ? "black"
+                      : new_study === "Y"
+                      ? "#e6ffe6"
+                      : days_since_last_ae_refresh > 28
+                      ? "#fff5e6"
+                      : null,
+                  color: visibleFlag === "N" ? "white" : "black",
+                }}
+              >
+                {value}
+              </Box>
+            </Tooltip>
           );
+        },
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 100,
+        renderCell: (cellValues) => {
+          const { value, row } = cellValues,
+            { lstcndt, eosdt } = row;
+          return (
+            <Tooltip
+              title={
+                "Last contact date: " +
+                lstcndt +
+                ",   " +
+                "End of study date: " +
+                eosdt
+              }
+            >
+              <Box>{value}</Box>
+            </Tooltip>
+          );
+          // return String(age).padStart(4, "0");
         },
       },
       {
         field: "gsdtmflag",
         editable: true,
         headerName: "gSDTM?",
-        width: 150,
+        width: 90,
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
             { id } = row;
@@ -149,14 +506,15 @@ const App = () => {
                 // mt: 0.1,
                 transform: "scale(0.75)",
               }}
-              checked={value || value === 1 || value === "Y"}
+              checked={value || value === 1 || value === "Y" ? true : false}
               onChange={(event) => {
                 const checked = event.target.checked;
                 console.log("id", id, "value", value, checked);
                 setSelectedId(id);
+                setNeedToSave(true);
                 handleSwitch(checked, id);
               }}
-              disabled
+              disabled={!showGsdtmSwitch}
             />
           );
         },
@@ -171,25 +529,32 @@ const App = () => {
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
             pathArray = value.split("/"),
-            { id, gsdtmflag } = row,
+            { id, gsdtmflag, needsCopy } = row,
             lastPart = pathArray.slice(5).join("/");
           if (gsdtmflag) return <Box></Box>;
           else if (lastPart.length > 0)
             return (
-              <Box
-                sx={{
-                  color: "blue",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                }}
-                onClick={() => {
-                  console.log("id", id);
-                  setSelectedId(id);
-                  handleClick(value, id);
-                }}
+              <Tooltip
+                title={
+                  needsCopy === "Y" ? "will be copied" : "click to choose path"
+                }
               >
-                {lastPart}
-              </Box>
+                <Box
+                  sx={{
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    backgroundColor: needsCopy === "Y" ? "#e6ffe6" : null,
+                    color: "blue",
+                  }}
+                  onClick={() => {
+                    console.log("id", id);
+                    setSelectedId(id);
+                    handleClick(value, id);
+                  }}
+                >
+                  {lastPart}
+                </Box>
+              </Tooltip>
             );
           else
             return (
@@ -212,78 +577,136 @@ const App = () => {
             );
         },
       },
+
       {
         field: "id",
-        headerName: "Files",
-        width: 50,
+        headerName: "View",
+        width: 120,
         renderCell: (cellValues) => {
           const { row } = cellValues,
-            { path } = row;
+            { path, compound, indication, studyname } = row;
+
           return (
-            <IconButton>
-              <FileCopyTwoTone
-                sx={{
-                  "&:hover": { cursor: "pointer" },
-                  fontSize: fontSize + 3,
-                }}
-                onClick={() => {
-                  window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
-                }}
-              />
-            </IconButton>
+            <>
+              <Tooltip title="View the file or path currently selected">
+                <IconButton
+                  onClick={() => {
+                    window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
+                  }}
+                >
+                  <FileCopyTwoTone
+                    sx={{
+                      "&:hover": { cursor: "pointer" },
+                      fontSize: fontSize + 3,
+                    }}
+                  />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="View sdtm_last for this study">
+                <IconButton
+                  onClick={() => {
+                    window
+                      .open(
+                        `${fileViewerPrefix}/clinical/${compound}/${indication}/${studyname}/biostat/staging/data_received/sdtm_last`,
+                        "_blank"
+                      )
+                      .focus();
+                  }}
+                >
+                  <ContentCopyTwoTone
+                    sx={{
+                      "&:hover": { cursor: "pointer" },
+                      fontSize: fontSize + 3,
+                    }}
+                  />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="View gSDTM log in log viewer">
+                <IconButton
+                  onClick={() => {
+                    window
+                      .open(
+                        `${logViewerPrefix}/clinical/${compound}/${indication}/${studyname}/dm/g_sdtm/current/2_jobs/logs/cj_mapping_engine.log`,
+                        "_blank"
+                      )
+                      .focus();
+                  }}
+                  disabled
+                >
+                  <ViewComfy
+                    sx={{
+                      "&:hover": { cursor: "pointer" },
+                      fontSize: fontSize + 3,
+                    }}
+                  />
+                </IconButton>
+              </Tooltip>
+            </>
           );
         },
       },
+
+      // {
+      //   field: "dateFirstVisible",
+      //   headerName: "Age",
+      //   width: 50,
+      //   renderCell: (cellValues) => {
+      //     const { value } = cellValues,
+      //       d = new Date(value),
+      //       age = parseInt((new Date() - d) / (24 * 3600 * 1000));
+      //     return <Box>{age.toLocaleString()}</Box>;
+      //   },
+      // },
+      // {
+      //   field: "dateLastVisible",
+      //   headerName: "Last visible",
+      //   renderCell: (cellValues) => {
+      //     const { value, row } = cellValues,
+      //       { visibleFlag } = row;
+      //     return (
+      //       <Box
+      //         sx={{
+      //           backgroundColor: visibleFlag === "N" ? "black" : null,
+      //           color: visibleFlag === "N" ? "white" : "black",
+      //         }}
+      //       >
+      //         {value}
+      //       </Box>
+      //     );
+      //   },
+      // },
+      // { field: "needsCopy", headerName: "To Copy", width: 70 },
       {
-        field: "status",
-        headerName: "Log",
-        width: 50,
-        renderCell: (cellValues) => {
-          const { row } = cellValues,
-            { compound, indication, studyname } = row;
-          return (
-            <IconButton>
-              <ViewComfy
-                sx={{
-                  "&:hover": { cursor: "pointer" },
-                  fontSize: fontSize + 3,
-                }}
-                onClick={() => {
-                  window
-                    .open(
-                      `${logViewerPrefix}/clinical/${compound}/${indication}/${studyname}/dm/g_sdtm/current/2_jobs/logs/cj_mapping_engine.log`,
-                      "_blank"
-                    )
-                    .focus();
-                }}
-              />
-            </IconButton>
-          );
-        },
-      },
-      {
-        field: "dateFirstVisible",
-        headerName: "Age",
-        width: 50,
-        renderCell: (cellValues) => {
-          const { value } = cellValues,
-            d = new Date(value),
-            age = parseInt((new Date() - d) / (24 * 3600 * 1000));
-          return <Box>{age.toLocaleString()}</Box>;
-          // return String(age).padStart(4, "0");
-        },
-      },
-      {
-        field: "dateLastVisible",
-        headerName: "Last visible",
+        field: "datecopied",
+        headerName: "Date Copied",
+        width: 150,
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
-            { visibleFlag } = row;
+            { username, userFullName } = row;
+          return (
+            <Tooltip
+              title={
+                username
+                  ? "copied by " + userFullName + " (" + username + ")"
+                  : "null"
+              }
+            >
+              <Box>{value}</Box>
+            </Tooltip>
+          );
+        },
+      },
+      {
+        field: "statusoflastcopy",
+        headerName: "OK?",
+        width: 70,
+        renderCell: (cellValues) => {
+          const { value } = cellValues;
           return (
             <Box
               sx={{
-                backgroundColor: visibleFlag === "N" ? "black" : null,
-                color: visibleFlag === "N" ? "white" : "black",
+                backgroundColor: value === "Passed" ? "#e6ffe6" : "#ffe6e6",
+                // color: visibleFlag === "N" ? "white" : "black",
               }}
             >
               {value}
@@ -291,79 +714,6 @@ const App = () => {
           );
         },
       },
-      // {
-      //   field: "status",
-      //   headerName: "Status",
-      //   width: 150,
-      //   renderCell: (cellValues) => {
-      //     const { value, row } = cellValues,
-      //       { id } = row;
-      //     return (
-      //       <Tooltip
-      //         title={value === "final" ? "Final SDTM and ADaM received" : value}
-      //       >
-      //         <Autocomplete
-      //           value={value}
-      //           onChange={(event, newValue) => {
-      //             console.log(
-      //               "id",
-      //               id,
-      //               "value",
-      //               value,
-      //               "event",
-      //               event,
-      //               "newValue",
-      //               newValue
-      //             );
-      //             setSelectedId(id);
-      //             handleChoiceStatus(newValue, id);
-      //           }}
-      //           size="small"
-      //           options={optionsForStatus}
-      //           renderInput={(params) => (
-      //             <TextField {...params} variant="standard" />
-      //           )}
-      //         />
-      //       </Tooltip>
-      //     );
-      //   },
-      // },
-      // {
-      //   field: "phase",
-      //   headerName: "Phase",
-      //   width: 60,
-      //   renderCell: (cellValues) => {
-      //     const { value, row } = cellValues,
-      //       { id } = row;
-      //     return (
-      //       <Autocomplete
-      //         value={value}
-      //         onChange={(event, newValue) => {
-      //           console.log(
-      //             "id",
-      //             id,
-      //             "value",
-      //             value,
-      //             "event",
-      //             event,
-      //             "newValue",
-      //             newValue
-      //           );
-      //           setSelectedId(id);
-      //           handleChoicePhase(newValue, id);
-      //         }}
-      //         size="small"
-      //         options={optionsForPhase}
-      //         renderInput={(params) => (
-      //           <TextField {...params} variant="standard" />
-      //         )}
-      //       />
-      //     );
-      //   },
-      // },
-      { field: "needsCopy", headerName: "To Copy", width: 70 },
-      { field: "datecopied", headerName: "Date Copied", width: 100 },
-      { field: "statusoflastcopy", headerName: "OK?", width: 70 },
     ],
     [fontSize, setFontSize] = useState(
       Number(localStorage.getItem("fontSize")) || 10
@@ -434,6 +784,7 @@ const App = () => {
                   );
                   setSelectedPath(path);
                   setNeedsCopy("Y");
+                  setNeedToSave(true);
                   setOpenWebdav(false);
                 }}
                 color={"info"}
@@ -516,7 +867,7 @@ const App = () => {
         "pathArray",
         pathArray
       );
-      let pathToUse = path;
+      let pathToUse;
       const row = rowsToUse[fid],
         compound = row?.compound || pathArray[2],
         indication = row?.indication || pathArray[3],
@@ -531,16 +882,26 @@ const App = () => {
         "studyname",
         studyname
       );
-      if (pathArray.length < 5) {
+      if (
+        !path.includes(".zip") &&
+        path.includes("/dm/staging/transfers") &&
+        pathArray.length > 7
+      ) {
+        pathToUse = path;
+      } else
         pathToUse = `/clinical/${compound}/${indication}/${studyname}/dm/staging/transfers`;
-        console.log("pathToUse", pathToUse);
-      } else if (pathArray.length > 8) {
-        pathToUse = pathArray.join("/");
-      } else if (pathArray.length > 5) {
-        pathToUse = pathArray.slice(0, 5).join("/") + "/dm/staging/transfers";
-      } else if (pathArray.length === 5 && id !== -99) {
-        pathToUse = path + "/dm/staging/transfers";
-      }
+      //TODO: if path has a .zip at the end, then remove the last part so we just lookup the dir
+      setCurrentDir(pathToUse);
+      setParentDir(pathToUse.split("/").slice(0, -1).join("/"));
+      // if (pathArray.length < 5) {
+      //   pathToUse = `/clinical/${compound}/${indication}/${studyname}/dm/staging/transfers`;
+      // } else if (pathArray.length > 8) {
+      //     pathToUse = pathArray.slice(0, -1).join("/");
+      // } else if (pathArray.length > 5) {
+      //   pathToUse = pathArray.slice(0, 5).join("/") + "/dm/staging/transfers";
+      // } else if (pathArray.length === 5 && id !== -99) {
+      //   pathToUse = path + "/dm/staging/transfers";
+      // }
       setOpenWebdav(true);
       if (id) setSelectedId(id);
       console.log("pathToUse", pathToUse, "id", id);
@@ -555,20 +916,6 @@ const App = () => {
       if (value || value === 1 || value === "Y") rowsToUse[ind].path = "";
       console.log("rowsToUse[ind]", rowsToUse[ind]);
     },
-    // handleChoiceStatus = (value, id) => {
-    //   if (id) setSelectedId(id);
-    //   console.log("value", value, "id", id);
-    //   const ind = rowsToUse.findIndex((e) => e.id === id);
-    //   console.log("id", id, "ind", ind, "value", value);
-    //   rowsToUse[ind].status = value;
-    // },
-    // handleChoicePhase = (value, id) => {
-    //   if (id) setSelectedId(id);
-    //   console.log("value", value, "id", id);
-    //   const ind = rowsToUse.findIndex((e) => e.id === id);
-    //   console.log("id", id, "ind", ind, "value", value);
-    //   rowsToUse[ind].phase = value;
-    // },
     [selectedPath, setSelectedPath] = useState(null),
     [needsCopy, setNeedsCopy] = useState(null),
     [listOfFiles, setListOfFiles] = useState([{ value: "topDir", id: 0 }]),
@@ -578,6 +925,8 @@ const App = () => {
     [message, setMessage] = useState(null),
     updateJsonFile = (file, content) => {
       console.log("updateJsonFile - file:", file, "content:", content);
+      setNeedToSave(false);
+      setFlash(false);
       if (!file || !content) return;
       // drop id from each row in content
       const contentWithoutId = content.map((c) => {
@@ -648,16 +997,9 @@ const App = () => {
           write = true;
           writeRow = true;
         }
-        // was phase changed?
-        if (originalRow.phase !== rowFromTable.phase) {
-          console.log(
-            "phase changed to: ",
-            rowFromTable.phase,
-            ", from: ",
-            originalRow.phase
-          );
-          write = true;
-          writeRow = true;
+        // ensure if path does not start with /clinical, then we dont copy
+        if (!rowFromTable.path.startsWith("/clinical")) {
+          rowFromTable.needsCopy = "N";
         }
         if (writeRow) {
           rowFromTable.userFullName = userFullName;
@@ -728,9 +1070,18 @@ const App = () => {
             id: 3,
           },
         ]);
-      } else await getDir(webDavPrefix + dir, 1, processXml);
+      } else await getDir(webDavPrefix + dir, 1, processXml, processError);
     },
     [validDir, setValidDir] = useState(true),
+    processError = (response) => {
+      console.log("processError", response);
+      setShowMessage(
+        "Error: " + response.status === 404 ? "Not found" : response.statusText
+      );
+      setOpenSnackbar2(true);
+      setOpenWebdav(false);
+      setValidDir(false);
+    },
     processXml = (responseXML) => {
       // Here you can use the Data
       let dataXML = responseXML;
@@ -829,6 +1180,11 @@ const App = () => {
           return r;
         })
       );
+      if (filesAndDirs.length === 0) {
+        setShowMessage("No files or directories found");
+        setOpenSnackbar2(true);
+        setValidDir(false);
+      }
 
       console.log(
         "files",
@@ -844,6 +1200,16 @@ const App = () => {
 
   let username = localStorage.getItem("username");
 
+  // useEffect(() => {
+  //   if (showOngoingStudies) {
+  //     setFilterModel({
+  //       items: [{ field: "status", operator: "equals", value: "ongoing" }],
+  //     });
+  //   } else {
+  //     setFilterModel({ items: [] });
+  //   }
+  // }, [showOngoingStudies]);
+
   useEffect(() => {
     if (username === null) {
       setTempUsername("");
@@ -858,8 +1224,8 @@ const App = () => {
   useEffect(() => {
     // console.log("window", window);
     if (userList === null) return;
-    const matchingUsers = userList.users.filter(
-      (r) => r.userid === tempUsername
+    const matchingUsers = userList.filter(
+      (r) => r.userid === tempUsername && ["prg", "prg+ba"].includes(r.profile)
     );
     if (matchingUsers.length > 0) {
       setShowSaveButton(true);
@@ -873,7 +1239,7 @@ const App = () => {
 
   useEffect(() => {
     if (rowsToUse.length === 0 || ready) return;
-    // console.log("rowsToUse", rowsToUse);
+    console.log("rowsToUse", rowsToUse);
     // add an id to each object in array
     rowsToUse.forEach((e, i) => {
       e.id = i;
@@ -901,7 +1267,9 @@ const App = () => {
 
   useEffect(() => {
     if (!listOfFiles || listOfFiles.length === 0) return;
-    const path = listOfFiles[0].value.slice(49),
+    const path = listOfFiles[0].value.endsWith("/")
+        ? listOfFiles[0].value.slice(49, -1)
+        : listOfFiles[0].value.slice(49),
       tempCurrentDir = path.split("/").slice(0, -1).join("/"),
       tempParentDir = path.split("/").slice(0, -2).join("/");
     console.log(
@@ -942,7 +1310,7 @@ const App = () => {
     if (mode === "local") {
       console.log("assigning local test data");
       setRowsToUse(local_rows);
-      setUserList(local_user_holidays);
+      setUserList(local_user_list);
     } else {
       fetch(dataUrl)
         .then((response) => response.json())
@@ -966,10 +1334,18 @@ const App = () => {
           ? targetDir.split("/").slice(0, 5).join("/")
           : null;
       console.log("studyLevel", studyLevel, "targetDir", targetDir, "fid", fid);
-      if (studyLevel) handleClick(studyLevel, -99);
+      if (studyLevel && !targetDir.includes(".zip"))
+        handleClick(studyLevel, -99);
     }
     // eslint-disable-next-line
   }, [validDir]);
+
+  useEffect(() => {
+    if (!needToSave) return;
+    setTimeout(() => {
+      setFlash(!flash);
+    }, 3000);
+  }, [needToSave, flash]);
 
   const processRowUpdate = (newRow) => {
     const updatedRow = { ...newRow, isNew: false };
@@ -998,26 +1374,28 @@ const App = () => {
             &nbsp;&nbsp;{title}&nbsp;&nbsp;
           </Box>
           <Tooltip title="Save JSON back to server">
-            <Button
-              variant="contained"
-              // disabled={!allowSave}
-              sx={{ m: 1, ml: 2, fontSize: fontSize, height: fontSize + 3 }}
-              onClick={() => {
-                saveChanges(dataUrl, rowsToUse);
-                // updateJsonFile(dataUrl, rowsToUse);
-              }}
-              size="small"
-              color="success"
-              startIcon={<Save sx={{ fontSize: fontSize }} />}
-            >
-              Save
-            </Button>
+            <Fade in={flash} timeout={1500}>
+              <Button
+                variant={needToSave ? "contained" : "outlined"}
+                // disabled={!allowSave}
+                sx={{ m: 1, ml: 2, fontSize: fontSize, height: fontSize + 3 }}
+                onClick={() => {
+                  saveChanges(dataUrl, rowsToUse);
+                  // updateJsonFile(dataUrl, rowsToUse);
+                }}
+                size="small"
+                color="success"
+                startIcon={<Save sx={{ fontSize: fontSize }} />}
+              >
+                Save
+              </Button>
+            </Fade>
           </Tooltip>
           <Tooltip title="View Data Management gSDTM tracking sheet">
             <Button
-              variant="contained"
+              variant="outlined"
               // disabled={!allowSave}
-              sx={{ m: 1, ml: 2, fontSize: fontSize, height: fontSize + 3 }}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
               onClick={() => {
                 window
                   .open(
@@ -1028,11 +1406,52 @@ const App = () => {
               }}
               size="small"
               color="warning"
-              startIcon={<Save sx={{ fontSize: fontSize }} />}
+              startIcon={<ViewHeadline sx={{ fontSize: fontSize }} />}
             >
               gSDTM
             </Button>
           </Tooltip>
+          <Tooltip title="Log from part 1 of the SDTM_last process">
+            <Button
+              variant="outlined"
+              // disabled={!allowSave}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              onClick={() => {
+                window
+                  .open(
+                    `https://xarprod.ondemand.sas.com/lsaf/webdav/repo/general/biostat/tools/logviewer/index.html?log=https://xarprod.ondemand.sas.com/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part1.log`,
+                    "_blank"
+                  )
+                  .focus();
+              }}
+              size="small"
+              color="secondary"
+              startIcon={<ViewCozy sx={{ fontSize: fontSize }} />}
+            >
+              Part 1
+            </Button>
+          </Tooltip>
+          <Tooltip title="Log from part 3 of the SDTM_last process">
+            <Button
+              variant="outlined"
+              // disabled={!allowSave}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              onClick={() => {
+                window
+                  .open(
+                    `https://xarprod.ondemand.sas.com/lsaf/webdav/repo/general/biostat/tools/logviewer/index.html?log=https://xarprod.ondemand.sas.com/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part3.log`,
+                    "_blank"
+                  )
+                  .focus();
+              }}
+              size="small"
+              color="secondary"
+              startIcon={<ViewCozy sx={{ fontSize: fontSize }} />}
+            >
+              Part 3
+            </Button>
+          </Tooltip>
+
           <Tooltip title="View JSON data using the view tool">
             <IconButton
               color="primary"
@@ -1090,22 +1509,30 @@ const App = () => {
       </AppBar>
       <Grid container>
         <Grid item xs={12}>
-          <Box sx={{ height: innerHeight - 50, width: "100%" }}>
+          <Box sx={{ height: innerHeight - 60, width: "100%" }}>
             {ready && (
               <DataGridPro
                 // autoHeight={true}
+                // filterModel={filterModel}
                 autoPageSize={true}
-                getRowHeight={() => "auto"}
+                getRowHeight={() => 35}
+                // getRowHeight={() => "auto"}
+                // getEstimatedRowHeight={() => 30}
                 rows={rowsToUse}
                 columns={cols}
-                slots={{ toolbar: GridToolbar }}
+                slots={{ toolbar: CustomToolbar }}
+                // slots={{ toolbar: GridToolbar }}
+                disableDensitySelector
+                // disableColumnFilter
+                disableColumnSelector
                 slotProps={{
                   toolbar: {
                     showQuickFilter: true,
                   },
                 }}
+                apiRef={apiRef}
                 processRowUpdate={processRowUpdate}
-                sx={{ "& .MuiDataGrid-row": { fontSize: fontSize } }}
+                sx={{ "& .MuiDataGrid-row": { fontSize: fontSize }, mt: 7 }}
               />
             )}
           </Box>
@@ -1149,18 +1576,15 @@ const App = () => {
             />
           </DialogContent>
           <DialogActions>
-            {tempUsername &&
-              tempUsername > "" &&
-              userList.users &&
-              userList.users.length > 0 && (
-                <Button
-                  sx={{ height: fontSize + 3 }}
-                  disabled={!showSaveButton}
-                  onClick={() => saveUser()}
-                >
-                  Save
-                </Button>
-              )}
+            {tempUsername && tempUsername > "" && userList.length > 0 && (
+              <Button
+                sx={{ height: fontSize + 3 }}
+                disabled={!showSaveButton}
+                onClick={() => saveUser()}
+              >
+                Save
+              </Button>
+            )}
           </DialogActions>
         </Dialog>
       )}
@@ -1205,15 +1629,34 @@ const App = () => {
         title={parentDir}
       >
         <DialogTitle>
-          <IconButton
-            onClick={() => {
-              handleClick(parentDir);
-            }}
-            color={"info"}
-            sx={{ mr: 1 }}
-          >
-            <ArrowCircleUpTwoTone />
-          </IconButton>
+          <Tooltip title={"Go up one level"}>
+            <IconButton
+              onClick={() => {
+                handleClick(parentDir);
+              }}
+              color={"info"}
+              sx={{ mr: 1 }}
+            >
+              <ArrowCircleUpTwoTone />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={"Email technical programmers"}>
+            <IconButton
+              onClick={() => {
+                window.open(
+                  "mailto:qs_tech_prog@argenx.com?subject=Question&body=This email was sent from: " +
+                    encodeURIComponent(href) +
+                    "%0D%0A%0D%0AMy question is:",
+                  "_blank"
+                );
+              }}
+              color={"info"}
+              sx={{ mr: 1 }}
+            >
+              <EmailTwoTone />
+            </IconButton>
+          </Tooltip>
+
           {/* <IconButton
             onClick={() => {
               console.log("Use button pressed: parentDir", currentDir);
@@ -1237,31 +1680,13 @@ const App = () => {
               autoPageSize={true}
               getRowHeight={() => "auto"}
               density="compact"
+              initialState={{
+                sorting: {
+                  sortModel: [{ field: "created", sort: "desc" }],
+                },
+              }}
             />
           </Box>
-          <Tooltip title={"Email technical programmers"}>
-            <Button
-              sx={{
-                color: "blue",
-                border: 1,
-                borderColor: "blue",
-                borderRadius: 1,
-                padding: 0.4,
-                float: "right",
-                height: fontSize + 3,
-              }}
-              onClick={() => {
-                window.open(
-                  "mailto:qs_tech_prog@argenx.com?subject=Question&body=This email was sent from: " +
-                    encodeURIComponent(href) +
-                    "%0D%0A%0D%0AMy question is:",
-                  "_blank"
-                );
-              }}
-            >
-              Email
-            </Button>
-          </Tooltip>
         </DialogContent>
       </Dialog>
       {/* Dialog with General info about this screen */}
@@ -1271,57 +1696,8 @@ const App = () => {
         onClose={() => setOpenInfo(false)}
         open={openInfo}
       >
-        <DialogTitle>Info about this screen</DialogTitle>
-        <DialogContent>
-          The table has the following columns:
-          <Box sx={{ color: "#0288d1", fontSize: 13 }}>
-            <ol>
-              <li>
-                <b>Compound - </b>e.g. argx-113, argx-117, argx-119, etc.
-              </li>
-              <li>
-                <b>Indication - </b>e.g. bp, mg, cidp, etc.
-              </li>
-              <li>
-                <b>Study - </b>e.g. 113-1802
-              </li>
-              <li>
-                <b>gSDTM? - </b> Switch <b>on</b> indicates whether we are
-                copying gSDTM. If <b>off</b> we are using SDTM.
-              </li>
-              <li>
-                <b>Path - </b>Path chosen by user to get data from to copy to
-                sdtm_data. When a user saves this information we save the
-                date/time and userid in the JSON data, although it is not shown
-                in the table.
-              </li>
-              <li>
-                <b>FV - </b>FileViewer - view the path in the File Viewer, which
-                is sometimes easier to then explore the file system to find the
-                right place set choose as a path.
-              </li>
-              <li>
-                <b>Age - </b>How many days ince the study was first visibile
-                until now.
-              </li>
-              <li>
-                <b>Last visibile - </b>Date study was last visible, which can
-                indicate that a study has become inaccessible due to being
-                hidden for unblinding (for example)
-              </li>
-              <li>
-                <b>To Copy - </b>Indicates whether the data needs to be copied
-                or not.
-              </li>
-              <li>
-                <b>Date Copied - </b>Shows the date data was copied to
-                sdtm_last.
-              </li>
-              <li>
-                <b>OK? - </b>Status of copy.
-              </li>
-            </ol>
-          </Box>
+        <DialogTitle>
+          Info about this screen&nbsp;&nbsp;&nbsp;
           <Tooltip title={"Open User Guide"}>
             <Button
               sx={{
@@ -1343,6 +1719,105 @@ const App = () => {
               User Guide
             </Button>
           </Tooltip>
+        </DialogTitle>
+        <DialogContent>
+          If you want to use gSDTM, then this is currently disabled and can only
+          be enabled by notifying the technical programming team, who can enable
+          this to automatically be copied each day.
+          <p />
+          The table has the following columns:
+          <Box sx={{ color: "#0288d1", fontSize: 13 }}>
+            <ol>
+              <li>
+                <b>Compound - </b>e.g. argx-113, argx-117, argx-119, etc.
+              </li>
+              <li>
+                <b>Indication - </b>e.g. bp, mg, cidp, etc.
+              </li>
+              <li>
+                <b>Study - </b>e.g. 113-1802
+              </li>
+              <li>
+                <b>Status - </b>Status of study from BIS Tableau dashboard based
+                on weekly CRO deliveries.
+              </li>
+              <li>
+                <b>gSDTM? - </b> Switch <b>on</b> indicates whether we are
+                copying gSDTM. If <b>off</b> we are using SDTM.
+              </li>
+              <li>
+                <b>Path - </b>Path chosen by user to get data from to copy to
+                sdtm_data. When a user saves this information we save the
+                date/time and userid in the JSON data, although it is not shown
+                in the table.
+              </li>
+              <li>
+                <ul>
+                  <li>
+                    View the contents of the path, whether a zip file or folder.
+                  </li>
+                  <li>
+                    View the contents of sdtm_last to see what is currently
+                    there.
+                  </li>
+                  <li>
+                    View the SAS log for the job that builds gSDTM data for this
+                    study.
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <b>Date Copied - </b>Shows the date data was copied to
+                sdtm_last.
+              </li>
+              <li>
+                <b>OK? - </b>Status of last copy.
+              </li>
+            </ol>
+          </Box>
+          <hr />
+          {[
+            "pmason",
+            "dvankrunckelsven",
+            "mbusselen",
+            "pschrauben",
+            "jbodart",
+            "rwoodiwiss",
+            "fbuerger",
+          ].includes(tempUsername) ? (
+            <>
+              Enable gSDTM switch (only do this if you know what you are doing!)
+              <Switch
+                sx={{
+                  fontSize: fontSize - 5,
+                  border: 0.1,
+                  padding: 0.5,
+                  mt: 0.1,
+                  transform: "scale(0.75)",
+                }}
+                checked={showGsdtmSwitch}
+                onChange={() => setShowGsdtmSwitch(!showGsdtmSwitch)}
+                // disabled
+              />{" "}
+            </>
+          ) : null}
+          {/* Only show ongoing studies (switch off to see all studies!) */}
+          {/* <Switch
+            sx={{
+              fontSize: fontSize - 5,
+              border: 0.1,
+              padding: 0.5,
+              mt: 0.1,
+              transform: "scale(0.75)",
+            }}
+            checked={showOngoingStudies}
+            onChange={() => {
+              setShowOngoingStudies(!showOngoingStudies);
+              setReady(false);
+            }}
+            // disabled
+          /> */}
+          <br />
         </DialogContent>
       </Dialog>
     </>

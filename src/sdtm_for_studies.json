@@ -669,7 +669,8 @@
     "ae_refresh_dt": null,
     "check_dshb": "",
     "EDC_extract_dt": null,
-    "EDC_extract_min_dt": null
+    "EDC_extract_min_dt": null,
+    "comments": "This is a comment"
   },
   {
     "path": "/clinical/argx-113/hv/argx-113-1702",

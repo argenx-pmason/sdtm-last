@@ -24,6 +24,7 @@ import {
   InputAdornment,
   Switch,
   Fade,
+  Chip,
   // Autocomplete,
 } from "@mui/material";
 import {
@@ -42,6 +43,8 @@ import {
   ViewCozy,
   ViewHeadline,
   ContentCopyTwoTone,
+  Cancel,
+  AccessAlarm,
 } from "@mui/icons-material";
 import {
   DataGridPro,
@@ -58,6 +61,12 @@ import { LicenseInfo } from "@mui/x-license";
 // import optionsForStatus from "./optionsForStatus";
 // import optionsForPhase from "./optionsForPhase";
 import fullIndication from "./fullIndication";
+import useSound from "use-sound";
+// import _chime from "./_chime.mp3";
+import _saved from "./_saved.wav";
+import _tobesaved from "./_tobesaved.wav";
+import _error from "./_error.wav";
+
 const App = () => {
   LicenseInfo.setLicenseKey(
     "6b1cacb920025860cc06bcaf75ee7a66Tz05NDY2MixFPTE3NTMyNTMxMDQwMDAsUz1wcm8sTE09c3Vic2NyaXB0aW9uLEtWPTI="
@@ -107,6 +116,167 @@ const App = () => {
     [needToSave, setNeedToSave] = useState(false),
     [flash, setFlash] = useState(false),
     [selectedCompound, setSelectedCompound] = useState(""),
+    [split, setSplit] = useState(false),
+    [selected, setSelected] = useState(null),
+    setComment = (value, sn) => {
+      const ind = rowsToUse.findIndex((e) => e.studyname === sn);
+      // console.log(
+      //   "ind",
+      //   ind,
+      //   "sn",
+      //   sn,
+      //   "value",
+      //   value,
+      //   "rowsToUse[ind]",
+      //   rowsToUse[ind]
+      // );
+      rowsToUse[ind].comments = value;
+      // setNeedToSave(true);
+    },
+    StudyInfo = ({ study }) => {
+      const thisStudy = rowsToUse.find((e) => e.studyname === study),
+        {
+          compound,
+          indication,
+          studyname,
+          protocol_name,
+          Last_Achieved_Milestone,
+          FPFV,
+          First_ICF_date,
+          Control_Type,
+          LPLV,
+          adsl_refresh_date,
+          eosdt,
+          lstcndt,
+          sdtm_ae_refresh_date,
+          Investigational_Treatment,
+          No_of_subjects_treated,
+          studyid_add,
+          Randomization_Quotient,
+          Study_Name,
+          comments,
+        } = thisStudy
+      console.log("thisStudy", thisStudy);
+      return (
+        <Box>
+          <TextField
+            sx={{ width: "43%", mt: 1, mr: 1 }}
+            label="Compound"
+            value={compound}
+          />
+          <TextField
+            sx={{ width: "43%", mt: 1 }}
+            label="Indication"
+            value={indication}
+          />
+          <IconButton sx={{ width: "10%" }} onClick={() => setSplit(false)}>
+            <Cancel />
+          </IconButton>
+          <TextField
+            sx={{ color: "blue", width: "50%", mt: 1 }}
+            label="Study"
+            value={studyname}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="Additional"
+            value={studyid_add}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="Last achieved milestone"
+            value={Last_Achieved_Milestone}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="First ICF"
+            value={First_ICF_date}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="First Patient First Visit"
+            value={FPFV}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="Last Patient Last Visit"
+            value={LPLV}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="End of Study"
+            value={eosdt}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="Last Contact?"
+            value={lstcndt}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="SDTM AE Refresh"
+            value={sdtm_ae_refresh_date}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="ADSL Refresh"
+            value={adsl_refresh_date}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="Control Type"
+            value={Control_Type}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="Investigational Treatment"
+            value={Investigational_Treatment}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="Subjects treated"
+            value={No_of_subjects_treated}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="Randomization Quotient"
+            value={Randomization_Quotient}
+          />
+          <TextField
+            sx={{ width: "50%", mt: 1 }}
+            label="Study name"
+            value={Study_Name}
+          />
+          <TextField
+            sx={{ width: "100%", mt: 1, input: { color: "green" } }}
+            label="Comments"
+            color="success"
+            variant="standard"
+            defaultValue={comments}
+            // value={comments}
+            onChange={(e) => {
+              setComment(e.target.value, studyname);
+            }}
+            multiline
+            maxRows={6}
+          />
+          <TextField
+            sx={{ width: "100%", mt: 1 }}
+            label="Protocol name"
+            value={protocol_name}
+            multiline
+            maxRows={6}
+          />
+        </Box>
+      );
+    },
+    // [chime] = useSound(_chime, { volume: 0.25 }),
+    [error] = useSound(_error, { volume: 0.75 }),
+    [saved] = useSound(_saved, { volume: 0.25 }),
+    [tobesaved] = useSound(_tobesaved, {
+      volume: 0.25,
+      sprite: { bit: [0, 1400] },
+    }),
     CustomToolbar = () => {
       return (
         <GridToolbarContainer>
@@ -377,7 +547,13 @@ const App = () => {
         headerName: "Compound",
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
-            { new_study, visibleFlag, days_since_last_ae_refresh } = row;
+            {
+              new_study,
+              visibleFlag,
+              days_since_last_ae_refresh,
+              path,
+              status,
+            } = row;
           return (
             <Tooltip
               title={
@@ -387,11 +563,12 @@ const App = () => {
               <Box
                 sx={{
                   backgroundColor:
-                    new_study === "Y"
-                      ? "#e6ffe6"
-                      : visibleFlag === "N"
+                    visibleFlag === "N"
                       ? "black"
-                      : days_since_last_ae_refresh > 28
+                      : new_study === "Y"
+                      ? "#e6ffe6"
+                      : days_since_last_ae_refresh > 28 &&
+                        !(path.includes(".zip") && status === "final")
                       ? "#fff5e6"
                       : null,
                   color: visibleFlag === "N" ? "white" : "black",
@@ -408,7 +585,13 @@ const App = () => {
         headerName: "Indication",
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
-            { new_study, visibleFlag, days_since_last_ae_refresh } = row;
+            {
+              new_study,
+              visibleFlag,
+              days_since_last_ae_refresh,
+              path,
+              status,
+            } = row;
           return (
             <Tooltip
               title={value in fullIndication ? fullIndication[value] : value}
@@ -420,7 +603,8 @@ const App = () => {
                       ? "black"
                       : new_study === "Y"
                       ? "#e6ffe6"
-                      : days_since_last_ae_refresh > 28
+                      : days_since_last_ae_refresh > 28 &&
+                        !(path.includes(".zip") && status === "final")
                       ? "#fff5e6"
                       : null,
                   color: visibleFlag === "N" ? "white" : "black",
@@ -435,18 +619,20 @@ const App = () => {
       {
         field: "studyname",
         headerName: "Study",
-        width: 120,
+        width: 160,
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
             {
               new_study,
               visibleFlag,
-              protocol_name,
               days_since_last_ae_refresh,
+              path,
+              status,
             } = row;
           return (
-            <Tooltip title={protocol_name}>
-              <Box
+            <Tooltip title={"Click for more info"}>
+              <Button
+                size="small"
                 sx={{
                   fontSize: fontSize,
                   backgroundColor:
@@ -454,14 +640,20 @@ const App = () => {
                       ? "black"
                       : new_study === "Y"
                       ? "#e6ffe6"
-                      : days_since_last_ae_refresh > 28
+                      : days_since_last_ae_refresh > 28 &&
+                        !(path.includes(".zip") && status === "final")
                       ? "#fff5e6"
                       : null,
                   color: visibleFlag === "N" ? "white" : "black",
                 }}
+                onClick={() => {
+                  setSplit(true);
+                  console.log(value);
+                  setSelected(value);
+                }}
               >
                 {value}
-              </Box>
+              </Button>
             </Tooltip>
           );
         },
@@ -532,6 +724,21 @@ const App = () => {
             { id, gsdtmflag, needsCopy } = row,
             lastPart = pathArray.slice(5).join("/");
           if (gsdtmflag) return <Box></Box>;
+          else if (value === "Manual")
+            return (
+              <Tooltip title="Manual copying">
+                <Chip
+                  label="Manual"
+                  size="small"
+                  color="primary"
+                  onClick={() => {
+                    console.log("id", id);
+                    setSelectedId(id);
+                    handleClick(value, id);
+                  }}
+                />
+              </Tooltip>
+            );
           else if (lastPart.length > 0)
             return (
               <Tooltip
@@ -631,7 +838,7 @@ const App = () => {
                       )
                       .focus();
                   }}
-                  disabled
+                  disabled={!showGsdtmSwitch}
                 >
                   <ViewComfy
                     sx={{
@@ -682,7 +889,8 @@ const App = () => {
         width: 150,
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
-            { username, userFullName } = row;
+            { username, userFullName, visibleFlag } = row,
+            show = visibleFlag === "N" ? "" : value;
           return (
             <Tooltip
               title={
@@ -691,7 +899,7 @@ const App = () => {
                   : "null"
               }
             >
-              <Box>{value}</Box>
+              <Box>{show}</Box>
             </Tooltip>
           );
         },
@@ -701,15 +909,22 @@ const App = () => {
         headerName: "OK?",
         width: 70,
         renderCell: (cellValues) => {
-          const { value } = cellValues;
+          const { value, row } = cellValues,
+            { visibleFlag } = row,
+            show = visibleFlag === "N" ? "" : value;
           return (
             <Box
               sx={{
-                backgroundColor: value === "Passed" ? "#e6ffe6" : "#ffe6e6",
+                backgroundColor:
+                  visibleFlag === "N"
+                    ? null
+                    : value === "Passed"
+                    ? "#e6ffe6"
+                    : "#ffe6e6",
                 // color: visibleFlag === "N" ? "white" : "black",
               }}
             >
-              {value}
+              {show}
             </Box>
           );
         },
@@ -909,12 +1124,20 @@ const App = () => {
     },
     handleSwitch = (value, id) => {
       if (id) setSelectedId(id);
-      console.log("value", value, "id", id);
+      console.log("handleSwitch - value", value, "id", id);
       const ind = rowsToUse.findIndex((e) => e.id === id);
-      console.log("id", id, "ind", ind, "value", value);
+      console.log("handleSwitch - id", id, "ind", ind, "value", value);
       rowsToUse[ind].gsdtmflag = value;
       if (value || value === 1 || value === "Y") rowsToUse[ind].path = "";
-      console.log("rowsToUse[ind]", rowsToUse[ind]);
+      console.log("handleSwitch - rowsToUse[ind]", rowsToUse[ind]);
+    },
+    chooseManual = (id) => {
+      console.log("chooseManual - id", id);
+      setNeedToSave(true);
+      setSelectedPath("Manual");
+      setNeedsCopy(null);
+      handleSwitch(false, id);
+      setOpenWebdav(false);
     },
     [selectedPath, setSelectedPath] = useState(null),
     [needsCopy, setNeedsCopy] = useState(null),
@@ -951,6 +1174,8 @@ const App = () => {
             .then((response) => {
               setMessage(response.ok ? "File saved" : "File not saved");
               setOpenSnackbar(true);
+              if (response.ok) saved();
+              else error();
               response.text().then(function (text) {
                 console.log("text", text);
               });
@@ -958,6 +1183,7 @@ const App = () => {
             .catch((err) => {
               setMessage(err);
               setOpenSnackbar(true);
+              error();
               console.log("PUT err: ", err);
             });
         })
@@ -966,6 +1192,7 @@ const App = () => {
             "DELETE was attempted before the new version was saved - but the DELETE failed. (see console)"
           );
           setOpenSnackbar(true);
+          error();
           console.log("DELETE err: ", err);
         });
     },
@@ -1078,6 +1305,7 @@ const App = () => {
       setShowMessage(
         "Error: " + response.status === 404 ? "Not found" : response.statusText
       );
+      error();
       setOpenSnackbar2(true);
       setOpenWebdav(false);
       setValidDir(false);
@@ -1092,8 +1320,10 @@ const App = () => {
       ) {
         console.log("dataJSON", dataJSON);
         setShowMessage("Not a valid directory");
+        error();
         setOpenSnackbar2(true);
         setValidDir(false);
+        setListOfFiles([]); // clear the list of files since we dont have any
         return;
       }
       setValidDir(true);
@@ -1182,6 +1412,7 @@ const App = () => {
       );
       if (filesAndDirs.length === 0) {
         setShowMessage("No files or directories found");
+        error();
         setOpenSnackbar2(true);
         setValidDir(false);
       }
@@ -1344,8 +1575,9 @@ const App = () => {
     if (!needToSave) return;
     setTimeout(() => {
       setFlash(!flash);
-    }, 3000);
-  }, [needToSave, flash]);
+      tobesaved({ id: "bit" });
+    }, 1500);
+  }, [needToSave, flash, tobesaved, saved]);
 
   const processRowUpdate = (newRow) => {
     const updatedRow = { ...newRow, isNew: false };
@@ -1391,6 +1623,26 @@ const App = () => {
               </Button>
             </Fade>
           </Tooltip>
+          <Tooltip title="Subscribe to emails about study events">
+            <Button
+              variant="outlined"
+              // disabled={!allowSave}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              onClick={() => {
+                window
+                  .open(
+                    `https://xarprod.ondemand.sas.com/lsaf/filedownload/sdd%3A///general/biostat/tools/subscribe/index.html`,
+                    "_blank"
+                  )
+                  .focus();
+              }}
+              size="small"
+              color="primary"
+              startIcon={<AccessAlarm sx={{ fontSize: fontSize }} />}
+            >
+              Subscribe
+            </Button>
+          </Tooltip>{" "}
           <Tooltip title="View Data Management gSDTM tracking sheet">
             <Button
               variant="outlined"
@@ -1451,7 +1703,6 @@ const App = () => {
               Part 3
             </Button>
           </Tooltip>
-
           <Tooltip title="View JSON data using the view tool">
             <IconButton
               color="primary"
@@ -1459,7 +1710,7 @@ const App = () => {
               onClick={() => {
                 window
                   .open(
-                    `https://${server}/lsaf/filedownload/sdd%3A///general/biostat/tools/view/index.html?lsaf=/general/biostat/metadata/projects/sdtm_for_studies.json`
+                    `https://${server}/lsaf/filedownload/sdd%3A///general/biostat/tools/view/index.html?lsaf=/general/biostat/metadata/projects/sdtm_for_studies.json&readonly=true`
                   )
                   .focus();
               }}
@@ -1508,7 +1759,7 @@ const App = () => {
         </Toolbar>
       </AppBar>
       <Grid container>
-        <Grid item xs={12}>
+        <Grid item xs={split ? 9 : 12}>
           <Box sx={{ height: innerHeight - 60, width: "100%" }}>
             {ready && (
               <DataGridPro
@@ -1537,6 +1788,13 @@ const App = () => {
             )}
           </Box>
         </Grid>
+        {split && selected && (
+          <Grid item xs={split ? 3 : 12}>
+            <Box sx={{ ml: 1, mr: 1, mt: 7 }}>
+              <StudyInfo study={selected} />
+            </Box>
+          </Grid>
+        )}
       </Grid>
       {/* dialog that prompts for a user name */}
       {!username && (
@@ -1639,6 +1897,15 @@ const App = () => {
             >
               <ArrowCircleUpTwoTone />
             </IconButton>
+          </Tooltip>
+          <Tooltip title={"No automatic copying will be done"}>
+            <Button
+              variant="outlined"
+              onClick={() => chooseManual(selectedId)}
+              color="error"
+            >
+              Choose to copy manually
+            </Button>
           </Tooltip>
           <Tooltip title={"Email technical programmers"}>
             <IconButton

@@ -2,6 +2,8 @@ import "./App.css";
 import React, { useEffect, useState } from "react";
 import local_rows from "./sdtm_for_studies.json";
 import local_user_list from "./folder_access_request.json";
+import local_study_people from "./study_people.json";
+import local_super_users from "./super_users.json";
 import {
   Box,
   Grid,
@@ -29,7 +31,7 @@ import {
 } from "@mui/material";
 import {
   ArrowCircleUpTwoTone,
-  CheckCircleTwoTone,
+  CheckBoxOutlineBlank,
   Remove,
   Add,
   Save,
@@ -41,10 +43,14 @@ import {
   ViewComfy,
   EmailTwoTone,
   ViewCozy,
+  Lock,
   ViewHeadline,
   ContentCopyTwoTone,
   Cancel,
   AccessAlarm,
+  LockOpen,
+  DirectionsRun,
+  CheckBox,
 } from "@mui/icons-material";
 import {
   DataGridPro,
@@ -73,23 +79,31 @@ const App = () => {
   );
   const urlPrefix = window.location.protocol + "//" + window.location.host,
     apiRef = useGridApiRef(),
-    { href } = window.location,
+    { href, origin } = window.location,
     mode = href.startsWith("http://localhost") ? "local" : "remote",
     server = href.split("//")[1].split("/")[0],
     webDavPrefix = urlPrefix + "/lsaf/webdav/repo",
     fileViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/tools/fileviewer/index.html?file=`,
     logViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/tools/logviewer/index.html?log=`,
+    params = new URLSearchParams(document.location.search),
     innerHeight = window.innerHeight,
     title = "SDTM for studies",
     jsonPath = "/general/biostat/metadata/projects/sdtm_for_studies.json",
+    // "/general/biostat/tools/sdtm-last/metadata/sdtm_for_studies.json",
     dataUrl = webDavPrefix + jsonPath,
     usersUrl =
       webDavPrefix +
       "/general/biostat/metadata/projects/folder_access_request.json",
+    peopleUrl =
+      webDavPrefix + "/general/biostat/metadata/projects/study_people.json",
+    superUserUrl =
+      webDavPrefix + "/general/biostat/metadata/projects/super_users.json",
     [rowsToUse, setRowsToUse] = useState([]),
     [originalRows, setOriginalRows] = useState([]),
     [showMessage, setShowMessage] = useState(null),
     [showGsdtmSwitch, setShowGsdtmSwitch] = useState(false),
+    [quickFilterValues, setQuickFilterValues] = useState(null),
+    [pathForThisRow, setPathForThisRow] = useState(""),
     // [showOngoingStudies, setShowOngoingStudies] = useState(true),
     // [filterModel, setFilterModel] = useState({ items: [] }),
     // options = [
@@ -118,6 +132,33 @@ const App = () => {
     [selectedCompound, setSelectedCompound] = useState(""),
     [split, setSplit] = useState(false),
     [selected, setSelected] = useState(null),
+    [studyPeople, setStudyPeople] = useState(null),
+    [superUsers, setSuperUsers] = useState(null),
+    [dialogType, setDialogType] = useState(null),
+    parseCustomDateTime = (dateTimeStr) => {
+      const months = {
+        jan: 0,
+        feb: 1,
+        mar: 2,
+        apr: 3,
+        may: 4,
+        jun: 5,
+        jul: 6,
+        aug: 7,
+        sep: 8,
+        oct: 9,
+        nov: 10,
+        dec: 11,
+      };
+      dateTimeStr = dateTimeStr.trim(); // Remove spaces at either end of the string
+      const day = parseInt(dateTimeStr.slice(0, 2), 10);
+      const month = months[dateTimeStr.slice(2, 5).toLowerCase()];
+      const year = parseInt(dateTimeStr.slice(5, 9), 10);
+      const hour = parseInt(dateTimeStr.slice(10, 12), 10);
+      const minute = parseInt(dateTimeStr.slice(13, 15), 10);
+      const second = parseInt(dateTimeStr.slice(16, 18), 10);
+      return new Date(year, month, day, hour, minute, second);
+    },
     setComment = (value, sn) => {
       const ind = rowsToUse.findIndex((e) => e.studyname === sn);
       // console.log(
@@ -136,119 +177,108 @@ const App = () => {
     StudyInfo = ({ study }) => {
       const thisStudy = rowsToUse.find((e) => e.studyname === study),
         {
-          compound,
-          indication,
           studyname,
           protocol_name,
           Last_Achieved_Milestone,
           FPFV,
-          First_ICF_date,
-          Control_Type,
           LPLV,
           adsl_refresh_date,
           eosdt,
           lstcndt,
           sdtm_ae_refresh_date,
-          Investigational_Treatment,
           No_of_subjects_treated,
           studyid_add,
           Randomization_Quotient,
           Study_Name,
           comments,
-        } = thisStudy
-      console.log("thisStudy", thisStudy);
+        } = thisStudy,
+        peopleStudy = studyPeople.find((e) => e.study === study),
+        {
+          most_active_programmer,
+          lead_programmer,
+          most_active_dm,
+          lead_statistician,
+        } = peopleStudy || {
+          most_active_programmer: "unknown",
+          lead_programmer: "unknown",
+          most_active_dm: "unknown",
+          lead_statistician: "unknown",
+        },
+        emailDM = most_active_dm.includes("(")
+          ? most_active_dm.split("(")[1].split(")")[0] + "@argenx.com"
+          : null;
+
+      console.log(
+        "thisStudy",
+        thisStudy,
+        "peopleStudy",
+        peopleStudy,
+        studyPeople,
+        study,
+        "emailDM",
+        emailDM
+      );
       return (
         <Box>
           <TextField
-            sx={{ width: "43%", mt: 1, mr: 1 }}
-            label="Compound"
-            value={compound}
-          />
-          <TextField
-            sx={{ width: "43%", mt: 1 }}
-            label="Indication"
-            value={indication}
+            sx={{ width: "90%", mt: 1 }}
+            label="Additional Study ID"
+            value={studyid_add}
           />
           <IconButton sx={{ width: "10%" }} onClick={() => setSplit(false)}>
             <Cancel />
           </IconButton>
           <TextField
-            sx={{ color: "blue", width: "50%", mt: 1 }}
-            label="Study"
-            value={studyname}
-          />
-          <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="Additional"
-            value={studyid_add}
-          />
-          <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="Last achieved milestone"
-            value={Last_Achieved_Milestone}
-          />
-          <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="First ICF"
-            value={First_ICF_date}
-          />
-          <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="First Patient First Visit"
-            value={FPFV}
-          />
-          <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="Last Patient Last Visit"
-            value={LPLV}
-          />
-          <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="End of Study"
-            value={eosdt}
-          />
-          <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="Last Contact?"
-            value={lstcndt}
-          />
-          <TextField
-            sx={{ width: "50%", mt: 1 }}
+            sx={{ width: "48%", mt: 1 }}
             label="SDTM AE Refresh"
             value={sdtm_ae_refresh_date}
           />
           <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="ADSL Refresh"
+            sx={{ width: "48%", mt: 1 }}
+            label="gADSL Refresh"
             value={adsl_refresh_date}
           />
           <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="Control Type"
-            value={Control_Type}
+            sx={{ width: "48%", mt: 1 }}
+            label="Most Active Programmer"
+            value={most_active_programmer}
           />
           <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="Investigational Treatment"
-            value={Investigational_Treatment}
+            sx={{ width: "48%", mt: 1 }}
+            label="Lead Programmer"
+            value={lead_programmer}
           />
           <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="Subjects treated"
-            value={No_of_subjects_treated}
-          />
+            sx={{ width: "48%", mt: 1 }}
+            label="Lead Statistician"
+            value={lead_statistician}
+          />{" "}
+          <Tooltip title={"Email a Data Manager"}>
+            <TextField
+              sx={{
+                width: "48%",
+                mt: 1,
+                color: "primary",
+                fontWeight: "bold",
+                "&:hover": {
+                  backgroundColor: "lightyellow",
+                },
+                input: { color: "blue" },
+              }}
+              label="Most Active DM"
+              value={most_active_dm}
+              onClick={() => {
+                window.open(
+                  `mailto:${emailDM}?subject=Question about ${studyname}&body=This email was sent from: ` +
+                    encodeURIComponent(href) +
+                    "%0D%0A%0D%0AMy question is:",
+                  "_blank"
+                );
+              }}
+            />
+          </Tooltip>
           <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="Randomization Quotient"
-            value={Randomization_Quotient}
-          />
-          <TextField
-            sx={{ width: "50%", mt: 1 }}
-            label="Study name"
-            value={Study_Name}
-          />
-          <TextField
-            sx={{ width: "100%", mt: 1, input: { color: "green" } }}
+            sx={{ width: "85%", mt: 1, input: { color: "green" } }}
             label="Comments"
             color="success"
             variant="standard"
@@ -259,6 +289,69 @@ const App = () => {
             }}
             multiline
             maxRows={6}
+          />
+          <Tooltip title="Save changes">
+            <IconButton
+              sx={{ mt: 3 }}
+              onClick={() => saveChanges(dataUrl, rowsToUse)}
+            >
+              <Save />
+            </IconButton>
+          </Tooltip>
+          <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="Last achieved milestone"
+            value={Last_Achieved_Milestone}
+          />
+          <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="Study name"
+            value={Study_Name}
+          />
+          <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="First Patient First Visit"
+            value={FPFV}
+          />
+          <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="Last Patient Last Visit"
+            value={LPLV}
+          />
+          <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="End of Study"
+            value={eosdt}
+          />
+          <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="Last Contact?"
+            value={lstcndt}
+          />
+          {/* <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="First ICF"
+            value={First_ICF_date}
+          /> */}
+          {/* <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="Control Type"
+            value={Control_Type}
+          /> */}
+          {/* <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="Investigational Treatment"
+            value={Investigational_Treatment}
+          /> */}
+          <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="Subjects treated"
+            value={No_of_subjects_treated}
+          />
+          <TextField
+            sx={{ width: "48%", mt: 1 }}
+            label="Randomization Quotient"
+            value={Randomization_Quotient}
           />
           <TextField
             sx={{ width: "100%", mt: 1 }}
@@ -551,7 +644,8 @@ const App = () => {
               new_study,
               visibleFlag,
               days_since_last_ae_refresh,
-              path,
+              // path,
+              // && !(path.includes(".zip")
               status,
             } = row;
           return (
@@ -567,8 +661,7 @@ const App = () => {
                       ? "black"
                       : new_study === "Y"
                       ? "#e6ffe6"
-                      : days_since_last_ae_refresh > 28 &&
-                        !(path.includes(".zip") && status === "final")
+                      : days_since_last_ae_refresh > 28 && status !== "final"
                       ? "#fff5e6"
                       : null,
                   color: visibleFlag === "N" ? "white" : "black",
@@ -589,7 +682,8 @@ const App = () => {
               new_study,
               visibleFlag,
               days_since_last_ae_refresh,
-              path,
+              // path,
+              // && !(path.includes(".zip")
               status,
             } = row;
           return (
@@ -603,8 +697,7 @@ const App = () => {
                       ? "black"
                       : new_study === "Y"
                       ? "#e6ffe6"
-                      : days_since_last_ae_refresh > 28 &&
-                        !(path.includes(".zip") && status === "final")
+                      : days_since_last_ae_refresh > 28 && status !== "final"
                       ? "#fff5e6"
                       : null,
                   color: visibleFlag === "N" ? "white" : "black",
@@ -623,14 +716,19 @@ const App = () => {
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
             {
+              comments,
               new_study,
               visibleFlag,
               days_since_last_ae_refresh,
-              path,
+              // path,
+              // && !(path.includes(".zip")
               status,
-            } = row;
+            } = row,
+            commentText = comments ? ` - ${comments}` : "",
+            color = comments ? "blue" : "black";
+          // console.log(row, comments, commentText, color);
           return (
-            <Tooltip title={"Click for more info"}>
+            <Tooltip title={`Click4More${commentText}`}>
               <Button
                 size="small"
                 sx={{
@@ -640,11 +738,10 @@ const App = () => {
                       ? "black"
                       : new_study === "Y"
                       ? "#e6ffe6"
-                      : days_since_last_ae_refresh > 28 &&
-                        !(path.includes(".zip") && status === "final")
+                      : days_since_last_ae_refresh > 28 && status !== "final"
                       ? "#fff5e6"
                       : null,
-                  color: visibleFlag === "N" ? "white" : "black",
+                  color: visibleFlag === "N" ? "white" : color,
                 }}
                 onClick={() => {
                   setSplit(true);
@@ -734,7 +831,8 @@ const App = () => {
                   onClick={() => {
                     console.log("id", id);
                     setSelectedId(id);
-                    handleClick(value, id);
+                    setDialogType("last");
+                    handleClick(value, id, "last");
                   }}
                 />
               </Tooltip>
@@ -756,7 +854,8 @@ const App = () => {
                   onClick={() => {
                     console.log("id", id);
                     setSelectedId(id);
-                    handleClick(value, id);
+                    setDialogType("last");
+                    handleClick(value, id, "last");
                   }}
                 >
                   {lastPart}
@@ -776,7 +875,8 @@ const App = () => {
                 onClick={() => {
                   console.log("id", id);
                   setSelectedId(id);
-                  handleClick(value, id);
+                  setDialogType("last");
+                  handleClick(value, id, "last");
                 }}
               >
                 Choose path
@@ -787,14 +887,75 @@ const App = () => {
 
       {
         field: "id",
-        headerName: "View",
-        width: 120,
+        headerName: "Actions",
+        width: 180,
         renderCell: (cellValues) => {
           const { row } = cellValues,
-            { path, compound, indication, studyname } = row;
-
+            { path, path_locked, id, compound, indication, studyname, status } =
+              row,
+            default_path_locked =
+              "/clinical/" +
+              compound +
+              "/" +
+              indication +
+              "/" +
+              studyname +
+              "/dm/production",
+            color =
+              path_locked === default_path_locked || path_locked === ""
+                ? "info"
+                : status === "final" && path !== path_locked
+                ? "error"
+                : "success",
+            title =
+              path_locked === default_path_locked
+                ? "Click to select locked SDTM file"
+                : status === "final" && path !== path_locked
+                ? "Usually the locked and last SDTM would be the same when study is final"
+                : path_locked === ""
+                ? "Path locked is blank"
+                : path_locked,
+            pathToPass = path_locked === "" ? default_path_locked : path_locked;
           return (
             <>
+              <Tooltip title={title}>
+                <IconButton
+                  onClick={() => {
+                    console.log(
+                      "studyname",
+                      studyname,
+                      "id",
+                      id,
+                      "path_locked",
+                      path_locked,
+                      "pathToPass",
+                      pathToPass
+                    );
+                    setSelectedId(id);
+                    setDialogType("locked");
+                    handleClick(pathToPass, id, "locked");
+                  }}
+                  color={color}
+                >
+                  {color === "success" ? (
+                    <Lock
+                      sx={{
+                        "&:hover": { cursor: "pointer" },
+                        transparency: 0.5,
+                        fontSize: fontSize + 3,
+                      }}
+                    />
+                  ) : (
+                    <LockOpen
+                      sx={{
+                        "&:hover": { cursor: "pointer" },
+                        transparency: 0.5,
+                        fontSize: fontSize + 3,
+                      }}
+                    />
+                  )}{" "}
+                </IconButton>
+              </Tooltip>
               <Tooltip title="View the file or path currently selected">
                 <IconButton
                   onClick={() => {
@@ -887,10 +1048,41 @@ const App = () => {
         field: "datecopied",
         headerName: "Date Copied",
         width: 150,
+        type: "dateTime",
+        valueGetter: (value) => {
+          if (!value) {
+            return value;
+          }
+          // create date object from datetime string, e.g. 12NOV2024:13:30:24
+          const datetime = parseCustomDateTime(value);
+          return datetime;
+        },
+        valueFormatter: (value) => {
+          if (!value) {
+            return value;
+          }
+          const show = value.toLocaleString([], {
+            year: "numeric",
+            month: "numeric",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return show;
+        },
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
             { username, userFullName, visibleFlag } = row,
-            show = visibleFlag === "N" ? "" : value;
+            show =
+              visibleFlag === "N"
+                ? ""
+                : value.toLocaleString([], {
+                    year: "numeric",
+                    month: "numeric",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
           return (
             <Tooltip
               title={
@@ -907,7 +1099,7 @@ const App = () => {
       {
         field: "statusoflastcopy",
         headerName: "OK?",
-        width: 70,
+        width: 90,
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
             { visibleFlag } = row,
@@ -933,7 +1125,7 @@ const App = () => {
     [fontSize, setFontSize] = useState(
       Number(localStorage.getItem("fontSize")) || 10
     ),
-    // columns used in popup letting users pick files/paths
+    // columns used in popup letting users pick zip files
     fileCols = [
       {
         field: "label",
@@ -941,12 +1133,18 @@ const App = () => {
         flex: 1,
         renderCell: (cellValues) => {
           const { row, value } = cellValues,
-            { isDirectory } = row,
+            { isDirectory, value: zipPath } = row,
             url = row.value,
             path =
               url.indexOf("/repo/") > 0
                 ? url.slice(url.indexOf("/repo/") + 5)
-                : value;
+                : value,
+            backgroundColor =
+              zipPath &&
+              zipPath.includes(pathForThisRow) &&
+              pathForThisRow.includes(".zip")
+                ? "yellow"
+                : null;
           // console.log("url", url, "path", path);
           let cell;
           if (isDirectory)
@@ -955,7 +1153,7 @@ const App = () => {
                 <Link
                   onClick={() => {
                     console.log("path", path, "value", value);
-                    handleClick(path);
+                    handleClick(path, null, "last");
                   }}
                   href="#"
                   underline="hover"
@@ -967,7 +1165,9 @@ const App = () => {
           else
             cell = (
               <Tooltip title={path}>
-                <Box sx={{ color: "black" }}>{value}</Box>
+                <Box sx={{ color: "black", backgroundColor: backgroundColor }}>
+                  {value}
+                </Box>
               </Tooltip>
             );
           return cell;
@@ -979,11 +1179,15 @@ const App = () => {
         width: 50,
         renderCell: (cellValues) => {
           const { row } = cellValues,
-            { value } = row,
+            { value, label } = row,
             path =
               value.indexOf("/repo/") > 0
                 ? value.slice(value.indexOf("/repo/") + 5)
-                : value;
+                : value,
+            name = label.split(" ")[0],
+            zipForThisRow = pathForThisRow.split("/").at(-1),
+            match = name && name.includes(".zip") && zipForThisRow === name,
+            icon = match ? <CheckBox /> : <CheckBoxOutlineBlank />;
           if (value.endsWith(".zip"))
             return (
               <IconButton
@@ -1006,7 +1210,7 @@ const App = () => {
                 size="small"
                 sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
               >
-                <CheckCircleTwoTone />
+                {icon}
               </IconButton>
             );
           else return null;
@@ -1058,6 +1262,75 @@ const App = () => {
             path =
               value.indexOf("/repo/") > 0
                 ? value.slice(value.indexOf("/repo/") + 5)
+                : value,
+            backgroundColor =
+              value.includes(pathForThisRow) && pathForThisRow.includes(".zip")
+                ? "yellow"
+                : null;
+          let cell;
+          if (isDirectory) cell = <Box sx={{ color: "blue" }}>{path}</Box>;
+          else
+            cell = (
+              <Box sx={{ color: "black", backgroundColor: backgroundColor }}>
+                {path}
+              </Box>
+            );
+          return cell;
+        },
+      },
+    ],
+    // columns used in popup letting users pick zip files
+    fileColsLocked = [
+      {
+        field: "label",
+        headerName: "name",
+        flex: 1,
+        renderCell: (cellValues) => {
+          const { row, value } = cellValues,
+            { isDirectory } = row,
+            url = row.value,
+            path =
+              url.indexOf("/repo/") > 0
+                ? url.slice(url.indexOf("/repo/") + 5)
+                : value;
+          // console.log("url", url, "path", path);
+          let cell;
+          if (isDirectory)
+            cell = (
+              <Tooltip title={path}>
+                <Link
+                  onClick={() => {
+                    console.log("path", path, "value", value);
+                    handleClick(path, null, "locked");
+                  }}
+                  href="#"
+                  underline="hover"
+                >
+                  {value}
+                </Link>
+              </Tooltip>
+            );
+          else
+            cell = (
+              <Tooltip title={path}>
+                <Box sx={{ color: "black" }}>{value}</Box>
+              </Tooltip>
+            );
+          return cell;
+        },
+      },
+      { field: "created", headerName: "created", width: 200 },
+      { field: "modified", headerName: "modified", width: 200 },
+      {
+        field: "value",
+        headerName: "path",
+        flex: 3,
+        renderCell: (cellValues) => {
+          const { value, row } = cellValues,
+            { isDirectory } = row,
+            path =
+              value.indexOf("/repo/") > 0
+                ? value.slice(value.indexOf("/repo/") + 5)
                 : value;
           let cell;
           if (isDirectory) cell = <Box sx={{ color: "blue" }}>{path}</Box>;
@@ -1067,11 +1340,11 @@ const App = () => {
       },
     ],
     [selectedId, setSelectedId] = useState(null),
-    handleClick = (path, id) => {
+    handleClick = (path, id, dt) => {
       let pathArray = path.split("/").filter((e, ind) => ind === 0 || e),
         fid = rowsToUse.findIndex((e) => e.id === id);
       console.log(
-        "id",
+        "handleClick - id",
         id,
         "fid",
         fid,
@@ -1080,13 +1353,17 @@ const App = () => {
         "path",
         path,
         "pathArray",
-        pathArray
+        pathArray,
+        "dt",
+        dt
       );
       let pathToUse;
       const row = rowsToUse[fid],
         compound = row?.compound || pathArray[2],
         indication = row?.indication || pathArray[3],
-        studyname = row?.studyname || pathArray[4];
+        studyname = row?.studyname || pathArray[4],
+        tempPath = row?.path;
+      if (tempPath) setPathForThisRow(tempPath);
       console.log(
         "row",
         row,
@@ -1095,19 +1372,25 @@ const App = () => {
         "indication",
         indication,
         "studyname",
-        studyname
+        studyname,
+        "tempPath",
+        tempPath
       );
-      if (
-        !path.includes(".zip") &&
-        path.includes("/dm/staging/transfers") &&
-        pathArray.length > 7
+      if (dt === "locked" && pathArray.length < 7) {
+        pathToUse = path + "/production";
+      } else if (
+        (!path.includes(".zip") &&
+          path.includes("/dm/staging/transfers") &&
+          pathArray.length > 7) ||
+        (path.includes("/dm/production") && pathArray.length > 6)
       ) {
         pathToUse = path;
       } else
         pathToUse = `/clinical/${compound}/${indication}/${studyname}/dm/staging/transfers`;
       //TODO: if path has a .zip at the end, then remove the last part so we just lookup the dir
       setCurrentDir(pathToUse);
-      setParentDir(pathToUse.split("/").slice(0, -1).join("/"));
+      const tempParent = pathToUse.split("/").slice(0, -1).join("/");
+      setParentDir(tempParent);
       // if (pathArray.length < 5) {
       //   pathToUse = `/clinical/${compound}/${indication}/${studyname}/dm/staging/transfers`;
       // } else if (pathArray.length > 8) {
@@ -1117,7 +1400,8 @@ const App = () => {
       // } else if (pathArray.length === 5 && id !== -99) {
       //   pathToUse = path + "/dm/staging/transfers";
       // }
-      setOpenWebdav(true);
+      if (dt === "locked") setOpenWebdavLocked(true);
+      else setOpenWebdav(true);
       if (id) setSelectedId(id);
       console.log("pathToUse", pathToUse, "id", id);
       getWebDav(pathToUse);
@@ -1140,11 +1424,13 @@ const App = () => {
       setOpenWebdav(false);
     },
     [selectedPath, setSelectedPath] = useState(null),
+    [selectedPathLocked, setSelectedPathLocked] = useState(null),
     [needsCopy, setNeedsCopy] = useState(null),
     [listOfFiles, setListOfFiles] = useState([{ value: "topDir", id: 0 }]),
     [currentDir, setCurrentDir] = useState(""),
     [parentDir, setParentDir] = useState(""),
     [openWebdav, setOpenWebdav] = useState(false),
+    [openWebdavLocked, setOpenWebdavLocked] = useState(false),
     [message, setMessage] = useState(null),
     updateJsonFile = (file, content) => {
       console.log("updateJsonFile - file:", file, "content:", content);
@@ -1224,6 +1510,17 @@ const App = () => {
           write = true;
           writeRow = true;
         }
+        // was comments changed?
+        if (originalRow?.comments !== rowFromTable?.comments) {
+          console.log(
+            "comments changed to: ",
+            rowFromTable?.comments,
+            ", from: ",
+            originalRow?.comments
+          );
+          write = true;
+          writeRow = true;
+        }
         // ensure if path does not start with /clinical, then we dont copy
         if (!rowFromTable.path.startsWith("/clinical")) {
           rowFromTable.needsCopy = "N";
@@ -1243,7 +1540,7 @@ const App = () => {
         setListOfFiles([
           {
             value:
-              "https://xarprod.ondemand.sas.com/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/",
+              origin + "/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/",
             fileType: "/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/",
             label: "argx-110-0000",
             created: "2021-08-11T06:22:30Z",
@@ -1256,7 +1553,8 @@ const App = () => {
           },
           {
             value:
-              "https://xarprod.ondemand.sas.com/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/biostat/",
+              origin +
+              "/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/biostat/",
             fileType:
               "/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/biostat/",
             label: "biostat",
@@ -1270,7 +1568,8 @@ const App = () => {
           },
           {
             value:
-              "https://xarprod.ondemand.sas.com/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/dm/",
+              origin +
+              "/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/dm/",
             fileType:
               "/lsaf/webdav/repo/clinical/argx-110/aml/argx-110-0000/dm/",
             label: "dm",
@@ -1284,7 +1583,8 @@ const App = () => {
           },
           {
             value:
-              "https://xarprod.ondemand.sas.com/lsaf/webdav/repo/clinical/argx-113/cidp/argx-113-1902/dm/staging/transfers/2021-07-06_argx-113-1902_sdtm.zip",
+              origin +
+              "/lsaf/webdav/repo/clinical/argx-113/cidp/argx-113-1902/dm/staging/transfers/2021-07-06_argx-113-1902_sdtm.zip",
             fileType:
               "/lsaf/webdav/repo/clinical/argx-113/cidp/argx-113-1902/dm/staging/transfers/2021-07-06_argx-113-1902_sdtm.zip",
             label: "2021-07-06_argx-113-1902_sdtm.zip",
@@ -1307,7 +1607,7 @@ const App = () => {
       );
       error();
       setOpenSnackbar2(true);
-      setOpenWebdav(false);
+      setOpenWebdavLocked(false);
       setValidDir(false);
     },
     processXml = (responseXML) => {
@@ -1471,6 +1771,9 @@ const App = () => {
   useEffect(() => {
     if (rowsToUse.length === 0 || ready) return;
     console.log("rowsToUse", rowsToUse);
+    const tempQf = [params.get("study")];
+    setQuickFilterValues(tempQf);
+
     // add an id to each object in array
     rowsToUse.forEach((e, i) => {
       e.id = i;
@@ -1494,13 +1797,17 @@ const App = () => {
     });
     setRowsToUse(sorted);
     setReady(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, rowsToUse]);
 
   useEffect(() => {
     if (!listOfFiles || listOfFiles.length === 0) return;
-    const path = listOfFiles[0].value.endsWith("/")
-        ? listOfFiles[0].value.slice(49, -1)
-        : listOfFiles[0].value.slice(49),
+    const i = listOfFiles[0].value.indexOf("/clinical/"),
+      path = listOfFiles[0].value.endsWith("/")
+        ? listOfFiles[0].value.slice(i, -1)
+        : listOfFiles[0].value.slice(i),
+      // ? listOfFiles[0].value.slice(49, -1)
+      // : listOfFiles[0].value.slice(49),
       tempCurrentDir = path.split("/").slice(0, -1).join("/"),
       tempParentDir = path.split("/").slice(0, -2).join("/");
     console.log(
@@ -1509,7 +1816,9 @@ const App = () => {
       "tempCurrentDir",
       tempCurrentDir,
       "tempParentDir",
-      tempParentDir
+      tempParentDir,
+      "listOfFiles",
+      listOfFiles
     );
     setCurrentDir(tempCurrentDir);
     setParentDir(tempParentDir);
@@ -1536,12 +1845,36 @@ const App = () => {
     // eslint-disable-next-line
   }, [selectedPath]);
 
+  // update rowsToUse with selectedPathLocked after the user has modified the path and clicked on the use button
+  useEffect(() => {
+    if (!selectedPathLocked) return;
+    console.log(
+      "selectedPathLocked has changed:",
+      "selectedPathLocked",
+      selectedPathLocked,
+      "rowsToUse",
+      rowsToUse,
+      "selectedId",
+      selectedId
+    );
+    const ind = rowsToUse.findIndex((e) => e.id === selectedId);
+    console.log("ind", ind);
+    if (ind === -1) return;
+    rowsToUse[ind].path_locked = selectedPathLocked;
+    rowsToUse[ind].needsCopy = needsCopy;
+    setSelectedPathLocked(null);
+    setNeedsCopy(null);
+    // eslint-disable-next-line
+  }, [selectedPathLocked]);
+
   // get data from local or remote
   useEffect(() => {
     if (mode === "local") {
       console.log("assigning local test data");
       setRowsToUse(local_rows);
       setUserList(local_user_list);
+      setStudyPeople(local_study_people);
+      setSuperUsers(local_super_users);
     } else {
       fetch(dataUrl)
         .then((response) => response.json())
@@ -1553,8 +1886,18 @@ const App = () => {
         .then((data) => {
           setUserList(data);
         });
+      fetch(peopleUrl)
+        .then((response) => response.json())
+        .then((data) => {
+          setStudyPeople(data);
+        });
+      fetch(superUserUrl)
+        .then((response) => response.json())
+        .then((data) => {
+          setSuperUsers(data);
+        });
     }
-  }, [dataUrl, usersUrl, mode]);
+  }, [dataUrl, usersUrl, peopleUrl, mode, superUserUrl]);
 
   useEffect(() => {
     console.log("validDir", validDir);
@@ -1631,7 +1974,8 @@ const App = () => {
               onClick={() => {
                 window
                   .open(
-                    `https://xarprod.ondemand.sas.com/lsaf/filedownload/sdd%3A///general/biostat/tools/subscribe/index.html`,
+                    origin +
+                      `/lsaf/filedownload/sdd%3A///general/biostat/tools/subscribe/index.html`,
                     "_blank"
                   )
                   .focus();
@@ -1642,27 +1986,52 @@ const App = () => {
             >
               Subscribe
             </Button>
-          </Tooltip>{" "}
-          <Tooltip title="View Data Management gSDTM tracking sheet">
-            <Button
-              variant="outlined"
-              // disabled={!allowSave}
-              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
-              onClick={() => {
-                window
-                  .open(
-                    `https://argenxbvba.sharepoint.com/:x:/s/LSAF_OCS-EXTTEAM/EYarxVqhRg1DtsY6A6EvBJYBJe_A7rg6q-m-nLdR-videA?e=sLj51z`,
-                    "_blank"
-                  )
-                  .focus();
-              }}
-              size="small"
-              color="warning"
-              startIcon={<ViewHeadline sx={{ fontSize: fontSize }} />}
-            >
-              gSDTM
-            </Button>
           </Tooltip>
+          {showGsdtmSwitch && (
+            <Tooltip title="View Data Management gSDTM tracking sheet">
+              <Button
+                variant="outlined"
+                // disabled={!allowSave}
+                sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+                onClick={() => {
+                  window
+                    .open(
+                      `https://argenxbvba.sharepoint.com/:x:/s/LSAF_OCS-EXTTEAM/EYarxVqhRg1DtsY6A6EvBJYBJe_A7rg6q-m-nLdR-videA?e=sLj51z`,
+                      "_blank"
+                    )
+                    .focus();
+                }}
+                size="small"
+                color="warning"
+                startIcon={<ViewHeadline sx={{ fontSize: fontSize }} />}
+              >
+                Track
+              </Button>
+            </Tooltip>
+          )}
+          {showGsdtmSwitch && (
+            <Tooltip title="View Data Management gSDTM process flow schedules">
+              <Button
+                variant="outlined"
+                // disabled={!allowSave}
+                sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+                onClick={() => {
+                  window
+                    .open(
+                      webDavPrefix +
+                        "/general/dm/docs/overview_process_flow_schedules.sas7bdat",
+                      "_blank"
+                    )
+                    .focus();
+                }}
+                size="small"
+                color="warning"
+                startIcon={<ViewHeadline sx={{ fontSize: fontSize }} />}
+              >
+                Flows
+              </Button>
+            </Tooltip>
+          )}
           <Tooltip title="Log from part 1 of the SDTM_last process">
             <Button
               variant="outlined"
@@ -1671,7 +2040,8 @@ const App = () => {
               onClick={() => {
                 window
                   .open(
-                    `https://xarprod.ondemand.sas.com/lsaf/webdav/repo/general/biostat/tools/logviewer/index.html?log=https://xarprod.ondemand.sas.com/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part1.log`,
+                    origin +
+                      `/lsaf/webdav/repo/general/biostat/tools/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part1.log`,
                     "_blank"
                   )
                   .focus();
@@ -1691,7 +2061,8 @@ const App = () => {
               onClick={() => {
                 window
                   .open(
-                    `https://xarprod.ondemand.sas.com/lsaf/webdav/repo/general/biostat/tools/logviewer/index.html?log=https://xarprod.ondemand.sas.com/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part3.log`,
+                    origin +
+                      `/lsaf/webdav/repo/general/biostat/tools/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part3.log`,
                     "_blank"
                   )
                   .focus();
@@ -1701,6 +2072,27 @@ const App = () => {
               startIcon={<ViewCozy sx={{ fontSize: fontSize }} />}
             >
               Part 3
+            </Button>
+          </Tooltip>
+          <Tooltip title="Run part 3 of the SDTM_last process which will copy gSDTM & zip files (if needed)">
+            <Button
+              variant="contained"
+              // disabled={!allowSave}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              onClick={() => {
+                window
+                  .open(
+                    origin +
+                      `/lsaf/filedownload/sdd%3A/general/biostat/tools/restapi/index.html?job=/general/biostat/jobs/gadam_ongoing_studies/dev/jobs/sdtm_part3.job&run=y`,
+                    "_blank"
+                  )
+                  .focus();
+              }}
+              size="small"
+              color="secondary"
+              startIcon={<DirectionsRun sx={{ fontSize: fontSize }} />}
+            >
+              Run Part 3
             </Button>
           </Tooltip>
           <Tooltip title="View JSON data using the view tool">
@@ -1784,6 +2176,14 @@ const App = () => {
                 apiRef={apiRef}
                 processRowUpdate={processRowUpdate}
                 sx={{ "& .MuiDataGrid-row": { fontSize: fontSize }, mt: 7 }}
+                initialState={{
+                  filter: {
+                    filterModel: {
+                      items: [],
+                      quickFilterValues: quickFilterValues,
+                    },
+                  },
+                }}
               />
             )}
           </Box>
@@ -1870,7 +2270,7 @@ const App = () => {
           onClose={handleCloseSnackbar}
           message={message}
         />
-      )}{" "}
+      )}
       {showMessage && (
         <Snackbar
           open={openSnackbar2}
@@ -1878,7 +2278,8 @@ const App = () => {
           onClose={handleCloseSnackbar2}
           message={showMessage}
         />
-      )}{" "}
+      )}
+      {/* dialog to select zip files */}
       <Dialog
         fullWidth
         maxWidth="xl"
@@ -1890,7 +2291,7 @@ const App = () => {
           <Tooltip title={"Go up one level"}>
             <IconButton
               onClick={() => {
-                handleClick(parentDir);
+                handleClick(parentDir, null, "last");
               }}
               color={"info"}
               sx={{ mr: 1 }}
@@ -1923,19 +2324,6 @@ const App = () => {
               <EmailTwoTone />
             </IconButton>
           </Tooltip>
-
-          {/* <IconButton
-            onClick={() => {
-              console.log("Use button pressed: parentDir", currentDir);
-              setSelectedPath(currentDir);
-              setNeedsCopy("Y");
-              setOpenWebdav(false);
-            }}
-            color={"info"}
-            sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
-          >
-            <CheckCircleTwoTone />
-          </IconButton> */}
           {currentDir}
         </DialogTitle>
         <DialogContent>
@@ -1943,6 +2331,74 @@ const App = () => {
             <DataGridPro
               rows={listOfFiles}
               columns={fileCols}
+              autoHeight={true}
+              autoPageSize={true}
+              getRowHeight={() => "auto"}
+              density="compact"
+              initialState={{
+                sorting: {
+                  sortModel: [{ field: "created", sort: "desc" }],
+                },
+              }}
+            />
+          </Box>
+        </DialogContent>
+      </Dialog>
+      {/* dialog to select SDTM locked folder */}
+      <Dialog
+        fullWidth
+        maxWidth="xl"
+        onClose={() => setOpenWebdavLocked(false)}
+        open={openWebdavLocked}
+        title={parentDir}
+      >
+        <DialogTitle>
+          <Tooltip title={"Go up one level"}>
+            <IconButton
+              onClick={() => {
+                handleClick(parentDir, null, "locked");
+              }}
+              color={"info"}
+              sx={{ mr: 1 }}
+            >
+              <ArrowCircleUpTwoTone />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={"Email technical programmers"}>
+            <IconButton
+              onClick={() => {
+                window.open(
+                  "mailto:qs_tech_prog@argenx.com?subject=Question&body=This email was sent from: " +
+                    encodeURIComponent(href) +
+                    "%0D%0A%0D%0AMy question is:",
+                  "_blank"
+                );
+              }}
+              color={"info"}
+              sx={{ mr: 1 }}
+            >
+              <EmailTwoTone />
+            </IconButton>
+          </Tooltip>
+          <IconButton
+            onClick={() => {
+              console.log("Use button pressed: parentDir", currentDir);
+              setSelectedPathLocked(currentDir);
+              // setNeedsCopy("Y");
+              setOpenWebdavLocked(false);
+            }}
+            color={"info"}
+            sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
+          >
+            <CheckBoxOutlineBlank />
+          </IconButton>
+          {currentDir}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ height: innerHeight - 200, width: "100%" }}>
+            <DataGridPro
+              rows={listOfFiles}
+              columns={fileColsLocked}
               autoHeight={true}
               autoPageSize={true}
               getRowHeight={() => "auto"}
@@ -2016,10 +2472,16 @@ const App = () => {
                 <b>Path - </b>Path chosen by user to get data from to copy to
                 sdtm_data. When a user saves this information we save the
                 date/time and userid in the JSON data, although it is not shown
-                in the table.
+                in the table. This can also display a blue chip with the
+                word&nbsp;
+                <b>MANUAL</b> in it. This indicates that no automatic copying
+                will be done, but instead any data moved to sdtm_last must be
+                moved manually.
               </li>
               <li>
+                <b>Actions</b>
                 <ul>
+                  <li>Choose a path for locked SDTM.</li>
                   <li>
                     View the contents of the path, whether a zip file or folder.
                   </li>
@@ -2043,15 +2505,7 @@ const App = () => {
             </ol>
           </Box>
           <hr />
-          {[
-            "pmason",
-            "dvankrunckelsven",
-            "mbusselen",
-            "pschrauben",
-            "jbodart",
-            "rwoodiwiss",
-            "fbuerger",
-          ].includes(tempUsername) ? (
+          {superUsers && superUsers.includes(tempUsername) ? (
             <>
               Enable gSDTM switch (only do this if you know what you are doing!)
               <Switch

@@ -206,6 +206,15 @@ const App = () => {
         },
         emailDM = most_active_dm.includes("(")
           ? most_active_dm.split("(")[1].split(")")[0] + "@argenx.com"
+          : null,
+        emailLS = lead_statistician.includes("(")
+          ? lead_statistician.split("(")[1].split(")")[0] + "@argenx.com"
+          : null,
+        emailLP = lead_programmer.includes("(")
+          ? lead_programmer.split("(")[1].split(")")[0] + "@argenx.com"
+          : null,
+        emailAP = most_active_programmer.includes("(")
+          ? most_active_programmer.split("(")[1].split(")")[0] + "@argenx.com"
           : null;
 
       console.log(
@@ -216,7 +225,13 @@ const App = () => {
         studyPeople,
         study,
         "emailDM",
-        emailDM
+        emailDM,
+        "emailLS",
+        emailLS,
+        "emailLP",
+        emailLP,
+        "emailAP",
+        emailAP
       );
       return (
         <Box>
@@ -238,22 +253,79 @@ const App = () => {
             label="gADSL Refresh"
             value={adsl_refresh_date}
           />
-          <TextField
-            sx={{ width: "48%", mt: 1 }}
-            label="Most Active Programmer"
-            value={most_active_programmer}
-          />
-          <TextField
-            sx={{ width: "48%", mt: 1 }}
-            label="Lead Programmer"
-            value={lead_programmer}
-          />
-          <TextField
-            sx={{ width: "48%", mt: 1 }}
-            label="Lead Statistician"
-            value={lead_statistician}
-          />{" "}
-          <Tooltip title={"Email a Data Manager"}>
+          <Tooltip title={"Email most active Programmer"}>
+            <TextField
+              sx={{
+                width: "48%",
+                mt: 1,
+                color: "primary",
+                fontWeight: "bold",
+                "&:hover": {
+                  backgroundColor: "lightyellow",
+                },
+                input: { color: "blue" },
+              }}
+              label="Most Active Programmer"
+              value={most_active_programmer}
+              onClick={() => {
+                window.open(
+                  `mailto:${emailAP}?subject=Question about ${studyname}&body=This email was sent from: ` +
+                    encodeURIComponent(href) +
+                    "%0D%0A%0D%0AMy question is:",
+                  "_blank"
+                );
+              }}
+            />
+          </Tooltip>
+          <Tooltip title={"Email Lead Programmer"}>
+            <TextField
+              sx={{
+                width: "48%",
+                mt: 1,
+                color: "primary",
+                fontWeight: "bold",
+                "&:hover": {
+                  backgroundColor: "lightyellow",
+                },
+                input: { color: "blue" },
+              }}
+              label="Lead Programmer"
+              value={lead_programmer}
+              onClick={() => {
+                window.open(
+                  `mailto:${emailLP}?subject=Question about ${studyname}&body=This email was sent from: ` +
+                    encodeURIComponent(href) +
+                    "%0D%0A%0D%0AMy question is:",
+                  "_blank"
+                );
+              }}
+            />
+          </Tooltip>
+          <Tooltip title={"Email Statistician"}>
+            <TextField
+              sx={{
+                width: "48%",
+                mt: 1,
+                color: "primary",
+                fontWeight: "bold",
+                "&:hover": {
+                  backgroundColor: "lightyellow",
+                },
+                input: { color: "blue" },
+              }}
+              label="Lead Statistician"
+              value={lead_statistician}
+              onClick={() => {
+                window.open(
+                  `mailto:${emailLS}?subject=Question about ${studyname}&body=This email was sent from: ` +
+                    encodeURIComponent(href) +
+                    "%0D%0A%0D%0AMy question is:",
+                  "_blank"
+                );
+              }}
+            />
+          </Tooltip>
+          <Tooltip title={"Email Data Manager"}>
             <TextField
               sx={{
                 width: "48%",
@@ -818,7 +890,7 @@ const App = () => {
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
             pathArray = value.split("/"),
-            { id, gsdtmflag, needsCopy } = row,
+            { id, gsdtmflag, needsCopy, newer_zip } = row,
             lastPart = pathArray.slice(5).join("/");
           if (gsdtmflag) return <Box></Box>;
           else if (value === "Manual")
@@ -841,14 +913,23 @@ const App = () => {
             return (
               <Tooltip
                 title={
-                  needsCopy === "Y" ? "will be copied" : "click to choose path"
+                  needsCopy === "Y"
+                    ? "will be copied"
+                    : newer_zip
+                    ? "Newer zip file is available - " + newer_zip
+                    : "click to choose path"
                 }
               >
                 <Box
                   sx={{
                     textDecoration: "underline",
                     cursor: "pointer",
-                    backgroundColor: needsCopy === "Y" ? "#e6ffe6" : null,
+                    backgroundColor:
+                      needsCopy === "Y"
+                        ? "#e6ffe6"
+                        : newer_zip
+                        ? "#fff5e6"
+                        : null,
                     color: "blue",
                   }}
                   onClick={() => {
@@ -1771,7 +1852,7 @@ const App = () => {
   useEffect(() => {
     if (rowsToUse.length === 0 || ready) return;
     console.log("rowsToUse", rowsToUse);
-    const tempQf = [params.get("study")];
+    const tempQf = [params.get("study")].toString().toUpperCase(); // convert to upper case since study values are all upper case
     setQuickFilterValues(tempQf);
 
     // add an id to each object in array
@@ -2180,7 +2261,7 @@ const App = () => {
                   filter: {
                     filterModel: {
                       items: [],
-                      quickFilterValues: quickFilterValues,
+                      quickFilterValues: quickFilterValues || [],
                     },
                   },
                 }}
@@ -2384,7 +2465,7 @@ const App = () => {
             onClick={() => {
               console.log("Use button pressed: parentDir", currentDir);
               setSelectedPathLocked(currentDir);
-              // setNeedsCopy("Y");
+              setNeedsCopy("Y");
               setOpenWebdavLocked(false);
             }}
             color={"info"}

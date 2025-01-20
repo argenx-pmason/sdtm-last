@@ -2,7 +2,7 @@
   "name": "sdtm-last",
   "version": "0.1.0",
   "private": true,
-  "homepage": "/lsaf/webdav/repo/general/biostat/tools/sdtm-last",
+  "homepage": "/lsaf/webdav/repo/general/biostat/apps/sdtm-last",
   "dependencies": {
     "@emotion/react": "^11.12.0",
     "@emotion/styled": "^11.12.0",

@@ -83,21 +83,21 @@ const App = () => {
     mode = href.startsWith("http://localhost") ? "local" : "remote",
     server = href.split("//")[1].split("/")[0],
     webDavPrefix = urlPrefix + "/lsaf/webdav/repo",
-    fileViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/tools/fileviewer/index.html?file=`,
-    logViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/tools/logviewer/index.html?log=`,
+    fileViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/apps/fileviewer/index.html?file=`,
+    logViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/apps/logviewer/index.html?log=`,
     params = new URLSearchParams(document.location.search),
     innerHeight = window.innerHeight,
     title = "SDTM for studies",
     jsonPath = "/general/biostat/metadata/projects/sdtm_for_studies.json",
-    // "/general/biostat/tools/sdtm-last/metadata/sdtm_for_studies.json",
+    // "/general/biostat/apps/sdtm-last/metadata/sdtm_for_studies.json",
     dataUrl = webDavPrefix + jsonPath,
     usersUrl =
       webDavPrefix +
       "/general/biostat/metadata/projects/folder_access_request.json",
     peopleUrl =
-      webDavPrefix + "/general/biostat/metadata/projects/study_people.json",
+      webDavPrefix + "/general/biostat/apps/study_people/study_people.json",
     superUserUrl =
-      webDavPrefix + "/general/biostat/metadata/projects/super_users.json",
+      webDavPrefix + "/general/biostat/apps/super_users.json",
     [rowsToUse, setRowsToUse] = useState([]),
     [originalRows, setOriginalRows] = useState([]),
     [showMessage, setShowMessage] = useState(null),
@@ -983,20 +983,28 @@ const App = () => {
               studyname +
               "/dm/production",
             color =
-              path_locked === default_path_locked || path_locked === ""
+              path_locked === ""
                 ? "info"
-                : status === "final" && path !== path_locked
-                ? "error"
-                : "success",
+                : // : status === "final" && path !== path_locked
+                  // ? "warning"
+                  "success",
             title =
-              path_locked === default_path_locked
+              path_locked === ""
                 ? "Click to select locked SDTM file"
-                : status === "final" && path !== path_locked
-                ? "Usually the locked and last SDTM would be the same when study is final"
-                : path_locked === ""
-                ? "Path locked is blank"
-                : path_locked,
+                : // : status === "final" && path !== path_locked
+                  // ? path_locked +
+                  //   " - Usually the locked and last SDTM would be the same when study is final"
+                  path_locked,
             pathToPass = path_locked === "" ? default_path_locked : path_locked;
+          if (studyname === "argx-113-z005")
+            console.log(
+              row,
+              path_locked,
+              default_path_locked,
+              pathToPass,
+              color,
+              title
+            );
           return (
             <>
               <Tooltip title={title}>
@@ -1040,7 +1048,10 @@ const App = () => {
               <Tooltip title="View the file or path currently selected">
                 <IconButton
                   onClick={() => {
-                    window.open(`${fileViewerPrefix}${path}`, "_blank").focus();
+                    const pathToUse = path ? path : default_path_locked;
+                    window
+                      .open(`${fileViewerPrefix}${pathToUse}`, "_blank")
+                      .focus();
                   }}
                 >
                   <FileCopyTwoTone
@@ -1071,24 +1082,26 @@ const App = () => {
                 </IconButton>
               </Tooltip>
               <Tooltip title="View gSDTM log in log viewer">
-                <IconButton
-                  onClick={() => {
-                    window
-                      .open(
-                        `${logViewerPrefix}/clinical/${compound}/${indication}/${studyname}/dm/g_sdtm/current/2_jobs/logs/cj_mapping_engine.log`,
-                        "_blank"
-                      )
-                      .focus();
-                  }}
-                  disabled={!showGsdtmSwitch}
-                >
-                  <ViewComfy
-                    sx={{
-                      "&:hover": { cursor: "pointer" },
-                      fontSize: fontSize + 3,
+                <Box>
+                  <IconButton
+                    onClick={() => {
+                      window
+                        .open(
+                          `${logViewerPrefix}/clinical/${compound}/${indication}/${studyname}/dm/g_sdtm/current/2_jobs/logs/cj_mapping_engine.log`,
+                          "_blank"
+                        )
+                        .focus();
                     }}
-                  />
-                </IconButton>
+                    disabled={!showGsdtmSwitch}
+                  >
+                    <ViewComfy
+                      sx={{
+                        "&:hover": { cursor: "pointer" },
+                        fontSize: fontSize + 3,
+                      }}
+                    />
+                  </IconButton>
+                </Box>
               </Tooltip>
             </>
           );
@@ -1225,8 +1238,11 @@ const App = () => {
               zipPath.includes(pathForThisRow) &&
               pathForThisRow.includes(".zip")
                 ? "yellow"
-                : null;
-          // console.log("url", url, "path", path);
+                : null,
+            regexCheckingFilename = /^[0-9a-zA-Z_\-]+\.[a-zA-Z]+$/,
+            match = regexCheckingFilename.test(value),
+            color = match ? "black" : "red";
+          console.log("value", value, "match", match, "color", color);
           let cell;
           if (isDirectory)
             cell = (
@@ -1246,7 +1262,7 @@ const App = () => {
           else
             cell = (
               <Tooltip title={path}>
-                <Box sx={{ color: "black", backgroundColor: backgroundColor }}>
+                <Box sx={{ color: color, backgroundColor: backgroundColor }}>
                   {value}
                 </Box>
               </Tooltip>
@@ -1485,7 +1501,7 @@ const App = () => {
       else setOpenWebdav(true);
       if (id) setSelectedId(id);
       console.log("pathToUse", pathToUse, "id", id);
-      getWebDav(pathToUse);
+      getWebDav(pathToUse, dt);
     },
     handleSwitch = (value, id) => {
       if (id) setSelectedId(id);
@@ -1591,6 +1607,17 @@ const App = () => {
           write = true;
           writeRow = true;
         }
+        // was path_locked changed?
+        if (originalRow.path_locked !== rowFromTable.path_locked) {
+          console.log(
+            "path_locked changed to: ",
+            rowFromTable.path_locked,
+            ", from: ",
+            originalRow.path_locked
+          );
+          write = true;
+          writeRow = true;
+        }
         // was comments changed?
         if (originalRow?.comments !== rowFromTable?.comments) {
           console.log(
@@ -1615,8 +1642,8 @@ const App = () => {
       if (write) updateJsonFile(dataUrl, rowsToUse);
     },
     [openInfo, setOpenInfo] = useState(false),
-    getWebDav = async (dir) => {
-      console.log("dir", dir, "mode", mode);
+    getWebDav = async (dir, dt) => {
+      console.log("dir", dir, "mode", mode, "dt,dt");
       if (mode === "local") {
         setListOfFiles([
           {
@@ -1980,18 +2007,20 @@ const App = () => {
     }
   }, [dataUrl, usersUrl, peopleUrl, mode, superUserUrl]);
 
+  // if the last folder was not valid then open a more reliable one
   useEffect(() => {
-    console.log("validDir", validDir);
-    if (!validDir) {
-      const fid = rowsToUse.findIndex((e) => e.id === selectedId),
-        targetDir = rowsToUse[fid]?.path,
-        studyLevel = targetDir
-          ? targetDir.split("/").slice(0, 5).join("/")
-          : null;
-      console.log("studyLevel", studyLevel, "targetDir", targetDir, "fid", fid);
-      if (studyLevel && !targetDir.includes(".zip"))
-        handleClick(studyLevel, -99);
-    }
+    console.log("validDir", validDir, "dialogType", dialogType);
+    if (validDir) return;
+    const fid = rowsToUse.findIndex((e) => e.id === selectedId),
+      targetDir = rowsToUse[fid]?.path,
+      studyLevel = targetDir
+        ? targetDir.split("/").slice(0, 5).join("/")
+        : null;
+    console.log("studyLevel", studyLevel, "targetDir", targetDir, "fid", fid);
+    if (studyLevel && dialogType === "last")
+      handleClick(studyLevel, -99, "last");
+    else if (studyLevel && dialogType === "locked")
+      handleClick(studyLevel + "/dm/production", -99, "locked");
     // eslint-disable-next-line
   }, [validDir]);
 
@@ -2056,7 +2085,7 @@ const App = () => {
                 window
                   .open(
                     origin +
-                      `/lsaf/filedownload/sdd%3A///general/biostat/tools/subscribe/index.html`,
+                      `/lsaf/filedownload/sdd%3A///general/biostat/apps/subscribe/index.html`,
                     "_blank"
                   )
                   .focus();
@@ -2122,7 +2151,7 @@ const App = () => {
                 window
                   .open(
                     origin +
-                      `/lsaf/webdav/repo/general/biostat/tools/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part1.log`,
+                      `/lsaf/webdav/repo/general/biostat/apps/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part1.log`,
                     "_blank"
                   )
                   .focus();
@@ -2143,7 +2172,7 @@ const App = () => {
                 window
                   .open(
                     origin +
-                      `/lsaf/webdav/repo/general/biostat/tools/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part3.log`,
+                      `/lsaf/webdav/repo/general/biostat/apps/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part3.log`,
                     "_blank"
                   )
                   .focus();
@@ -2164,7 +2193,7 @@ const App = () => {
                 window
                   .open(
                     origin +
-                      `/lsaf/filedownload/sdd%3A/general/biostat/tools/restapi/index.html?job=/general/biostat/jobs/gadam_ongoing_studies/dev/jobs/sdtm_part3.job&run=y`,
+                      `/lsaf/filedownload/sdd%3A/general/biostat/apps/restapi/index.html?job=/general/biostat/jobs/gadam_ongoing_studies/dev/jobs/sdtm_part3.job&run=y`,
                     "_blank"
                   )
                   .focus();
@@ -2183,7 +2212,7 @@ const App = () => {
               onClick={() => {
                 window
                   .open(
-                    `https://${server}/lsaf/filedownload/sdd%3A///general/biostat/tools/view/index.html?lsaf=/general/biostat/metadata/projects/sdtm_for_studies.json&readonly=true`
+                    `https://${server}/lsaf/filedownload/sdd%3A///general/biostat/apps/view/index.html?lsaf=/general/biostat/metadata/projects/sdtm_for_studies.json&readonly=true`
                   )
                   .focus();
               }}
@@ -2409,6 +2438,7 @@ const App = () => {
         </DialogTitle>
         <DialogContent>
           <Box sx={{ height: innerHeight - 200, width: "100%" }}>
+            📣 Click a checkbox to select a zip file to use for SDTM-last data.
             <DataGridPro
               rows={listOfFiles}
               columns={fileCols}
@@ -2434,7 +2464,7 @@ const App = () => {
         title={parentDir}
       >
         <DialogTitle>
-          <Tooltip title={"Go up one level"}>
+          <Tooltip title={"Go up one level (only to dm/production level)"}>
             <IconButton
               onClick={() => {
                 handleClick(parentDir, null, "locked");
@@ -2461,22 +2491,26 @@ const App = () => {
               <EmailTwoTone />
             </IconButton>
           </Tooltip>
-          <IconButton
-            onClick={() => {
-              console.log("Use button pressed: parentDir", currentDir);
-              setSelectedPathLocked(currentDir);
-              setNeedsCopy("Y");
-              setOpenWebdavLocked(false);
-            }}
-            color={"info"}
-            sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
-          >
-            <CheckBoxOutlineBlank />
-          </IconButton>
+          <Tooltip title={"Select this folder as the locked SDTM folder"}>
+            <IconButton
+              onClick={() => {
+                console.log("Use button pressed: parentDir", currentDir);
+                setSelectedPathLocked(currentDir);
+                setNeedToSave(true);
+                setOpenWebdavLocked(false);
+              }}
+              color={"info"}
+              sx={{ mr: 1, height: fontSize + 3, fontSize: fontSize }}
+            >
+              <CheckBoxOutlineBlank />
+            </IconButton>
+          </Tooltip>
           {currentDir}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ height: innerHeight - 200, width: "100%" }}>
+            📣 Navigate to a folder and then click the checkbox to select it to
+            use for locked SDTM data.
             <DataGridPro
               rows={listOfFiles}
               columns={fileColsLocked}

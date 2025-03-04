@@ -61,7 +61,7 @@ import {
   GridToolbarQuickFilter,
   GridToolbarFilterButton,
 } from "@mui/x-data-grid-pro";
-import { getDir, xmlToJson } from "./utility";
+import { getDir, xmlToJson, upload, logon } from "./utility";
 import { LicenseInfo } from "@mui/x-license";
 //TODO change imports to fetches, so we can update in PROD and see result in app
 // import optionsForStatus from "./optionsForStatus";
@@ -79,8 +79,25 @@ const App = () => {
   );
   const urlPrefix = window.location.protocol + "//" + window.location.host,
     apiRef = useGridApiRef(),
-    { href, origin } = window.location,
-    mode = href.startsWith("http://localhost") ? "local" : "remote",
+    { href, origin, host } = window.location,
+    mode = href.startsWith("http://localhost") ? "local" : "remote";
+  let realhost;
+  if (host.includes("sharepoint")) {
+    realhost = "xarprod.ondemand.sas.com";
+  } else if (host.includes("localhost")) {
+    realhost = "xartest.ondemand.sas.com";
+  } else {
+    realhost = host;
+  }
+  const api = "https://" + realhost + "/lsaf/api",
+    [username, setUsername] = useState(""),
+    [password, setPassword] = useState(""),
+    [token, setToken] = useState(undefined),
+    [encryptedPassword, setEncryptedPassword] = useState(""),
+    lsafType =
+      href.includes("/webdav/work") || href.includes("/filedownload/work")
+        ? "work"
+        : "repo",
     server = href.split("//")[1].split("/")[0],
     webDavPrefix = urlPrefix + "/lsaf/webdav/repo",
     fileViewerPrefix = `https://${server}/lsaf/filedownload/sdd:/general/biostat/apps/fileviewer/index.html?file=`,
@@ -88,7 +105,7 @@ const App = () => {
     params = new URLSearchParams(document.location.search),
     innerHeight = window.innerHeight,
     title = "SDTM for studies",
-    jsonPath = "/general/biostat/metadata/projects/sdtm_for_studies.json",
+    jsonPath = "/general/biostat/apps/sdtm-last/sdtm_for_studies.json",
     // "/general/biostat/apps/sdtm-last/metadata/sdtm_for_studies.json",
     dataUrl = webDavPrefix + jsonPath,
     usersUrl =
@@ -96,8 +113,7 @@ const App = () => {
       "/general/biostat/metadata/projects/folder_access_request.json",
     peopleUrl =
       webDavPrefix + "/general/biostat/apps/study_people/study_people.json",
-    superUserUrl =
-      webDavPrefix + "/general/biostat/apps/super_users.json",
+    superUserUrl = webDavPrefix + "/general/biostat/apps/super_users.json",
     [rowsToUse, setRowsToUse] = useState([]),
     [originalRows, setOriginalRows] = useState([]),
     [showMessage, setShowMessage] = useState(null),
@@ -124,6 +140,7 @@ const App = () => {
     [openUserLogin, setOpenUserLogin] = useState(false),
     [openSnackbar, setOpenSnackbar] = useState(false),
     [openSnackbar2, setOpenSnackbar2] = useState(false),
+    [openSnackbar3, setOpenSnackbar3] = useState(false),
     [showSaveButton, setShowSaveButton] = useState(false),
     [userList, setUserList] = useState(null),
     [radioValue, setRadioValue] = useState("all"),
@@ -465,6 +482,15 @@ const App = () => {
                           id: 1,
                         },
                       ]
+                    : e.target.value === "final"
+                    ? [
+                        {
+                          field: "status",
+                          operator: "equals",
+                          value: "final",
+                          id: 1,
+                        },
+                      ]
                     : e.target.value === "ongoing"
                     ? [
                         {
@@ -498,8 +524,44 @@ const App = () => {
               control={<Radio />}
               label="Not Final"
             />
+            <FormControlLabel value="final" control={<Radio />} label="Final" />
             <FormControlLabel value="all" control={<Radio />} label="All" />
           </RadioGroup>
+          <Tooltip title="Compound argx-109">
+            <Button
+              variant={selectedCompound === "109" ? "contained" : "outlined"}
+              onClick={() => {
+                setSelectedCompound("109");
+                const f = apiRef.current,
+                  model = f.state.filter.filterModel,
+                  currentFilter = apiRef.current.state.filter.filterModel.items,
+                  newFilter = [
+                    ...currentFilter,
+                    {
+                      field: "compound",
+                      operator: "equals",
+                      value: "argx-109",
+                      id: 2,
+                    },
+                  ];
+                console.log(
+                  "f",
+                  f,
+                  "model",
+                  model,
+                  "currentFilter",
+                  currentFilter,
+                  "newFilter",
+                  newFilter
+                );
+                apiRef.current.upsertFilterItems(newFilter);
+              }}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              color="info"
+            >
+              109
+            </Button>
+          </Tooltip>
           <Tooltip title="Compound argx-110">
             <Button
               variant={selectedCompound === "110" ? "contained" : "outlined"}
@@ -706,6 +768,12 @@ const App = () => {
       }
       setOpenSnackbar2(false);
     },
+    handleCloseSnackbar3 = (event, reason) => {
+      if (reason === "clickaway") {
+        return;
+      }
+      setOpenSnackbar3(false);
+    },
     cols = [
       {
         field: "compound",
@@ -731,7 +799,7 @@ const App = () => {
                   backgroundColor:
                     visibleFlag === "N"
                       ? "black"
-                      : new_study === "Y"
+                      : new_study === "Y" || new_study === "Z"
                       ? "#e6ffe6"
                       : days_since_last_ae_refresh > 28 && status !== "final"
                       ? "#fff5e6"
@@ -767,7 +835,7 @@ const App = () => {
                   backgroundColor:
                     visibleFlag === "N"
                       ? "black"
-                      : new_study === "Y"
+                      : new_study === "Y" || new_study === "Z"
                       ? "#e6ffe6"
                       : days_since_last_ae_refresh > 28 && status !== "final"
                       ? "#fff5e6"
@@ -808,7 +876,7 @@ const App = () => {
                   backgroundColor:
                     visibleFlag === "N"
                       ? "black"
-                      : new_study === "Y"
+                      : new_study === "Y" || new_study === "Z"
                       ? "#e6ffe6"
                       : days_since_last_ae_refresh > 28 && status !== "final"
                       ? "#fff5e6"
@@ -972,8 +1040,15 @@ const App = () => {
         width: 180,
         renderCell: (cellValues) => {
           const { row } = cellValues,
-            { path, path_locked, id, compound, indication, studyname, status } =
-              row,
+            {
+              path,
+              path_locked,
+              id,
+              compound,
+              indication,
+              studyname,
+              path_locked_changed,
+            } = row,
             default_path_locked =
               "/clinical/" +
               compound +
@@ -994,17 +1069,8 @@ const App = () => {
                 : // : status === "final" && path !== path_locked
                   // ? path_locked +
                   //   " - Usually the locked and last SDTM would be the same when study is final"
-                  path_locked,
+                  path_locked + " (" + path_locked_changed + ")",
             pathToPass = path_locked === "" ? default_path_locked : path_locked;
-          if (studyname === "argx-113-z005")
-            console.log(
-              row,
-              path_locked,
-              default_path_locked,
-              pathToPass,
-              color,
-              title
-            );
           return (
             <>
               <Tooltip title={title}>
@@ -1228,21 +1294,33 @@ const App = () => {
         renderCell: (cellValues) => {
           const { row, value } = cellValues,
             { isDirectory, value: zipPath } = row,
+            zipPath2 = zipPath.replace(/%20/g, " "),
             url = row.value,
             path =
               url.indexOf("/repo/") > 0
                 ? url.slice(url.indexOf("/repo/") + 5)
                 : value,
             backgroundColor =
-              zipPath &&
-              zipPath.includes(pathForThisRow) &&
+              zipPath2 &&
+              zipPath2.includes(pathForThisRow) &&
               pathForThisRow.includes(".zip")
                 ? "yellow"
                 : null,
-            regexCheckingFilename = /^[0-9a-zA-Z_\-]+\.[a-zA-Z]+$/,
+            regexCheckingFilename = /^[0-9a-zA-Z_-]+\.[a-zA-Z]+ \(/,
             match = regexCheckingFilename.test(value),
             color = match ? "black" : "red";
-          console.log("value", value, "match", match, "color", color);
+          console.log(
+            "value",
+            value,
+            "match",
+            match,
+            "color",
+            color,
+            "zipPath2",
+            zipPath2,
+            "pathForThisRow",
+            pathForThisRow
+          );
           let cell;
           if (isDirectory)
             cell = (
@@ -1281,10 +1359,18 @@ const App = () => {
               value.indexOf("/repo/") > 0
                 ? value.slice(value.indexOf("/repo/") + 5)
                 : value,
-            name = label.split(" ")[0],
+            name = label.split(" (")[0],
             zipForThisRow = pathForThisRow.split("/").at(-1),
             match = name && name.includes(".zip") && zipForThisRow === name,
             icon = match ? <CheckBox /> : <CheckBoxOutlineBlank />;
+          console.log(
+            "zipForThisRow",
+            zipForThisRow,
+            "name",
+            name,
+            "match",
+            match
+          );
           if (value.endsWith(".zip"))
             return (
               <IconButton
@@ -1529,7 +1615,7 @@ const App = () => {
     [openWebdav, setOpenWebdav] = useState(false),
     [openWebdavLocked, setOpenWebdavLocked] = useState(false),
     [message, setMessage] = useState(null),
-    updateJsonFile = (file, content) => {
+    updateJsonFile = async (file, content) => {
       console.log("updateJsonFile - file:", file, "content:", content);
       setNeedToSave(false);
       setFlash(false);
@@ -1539,45 +1625,62 @@ const App = () => {
         // delete c.id;
         return c;
       });
-      let tempContent;
+      const pos = file.search("/webdav/"),
+        f = file.slice(pos + 12);
+      console.log("api", api, "f", f);
+
+      const uploadResponse = await upload(
+        api,
+        f,
+        contentWithoutId,
+        token,
+        true,
+        "Uploaded from View app using the upload REST API"
+      );
+      console.log("response from upload: ", uploadResponse);
+
+      setMessage("Upload = " + uploadResponse);
+      setOpenSnackbar(true);
+
+      // let tempContent;
       // handle inserting table into the right place in keyed object
-      tempContent = JSON.stringify(contentWithoutId);
+      // tempContent = JSON.stringify(contentWithoutId);
       // try to delete the file, in case it is there already, otherwise the PUT will not work
-      fetch(file, {
-        method: "DELETE",
-      })
-        .then((response) => {
-          fetch(file, {
-            method: "PUT",
-            headers: {
-              "Content-type": "application/json; charset=UTF-8",
-            },
-            body: tempContent,
-          })
-            .then((response) => {
-              setMessage(response.ok ? "File saved" : "File not saved");
-              setOpenSnackbar(true);
-              if (response.ok) saved();
-              else error();
-              response.text().then(function (text) {
-                console.log("text", text);
-              });
-            })
-            .catch((err) => {
-              setMessage(err);
-              setOpenSnackbar(true);
-              error();
-              console.log("PUT err: ", err);
-            });
-        })
-        .catch((err) => {
-          setMessage(
-            "DELETE was attempted before the new version was saved - but the DELETE failed. (see console)"
-          );
-          setOpenSnackbar(true);
-          error();
-          console.log("DELETE err: ", err);
-        });
+      // fetch(file, {
+      //   method: "DELETE",
+      // })
+      //   .then((response) => {
+      //     fetch(file, {
+      //       method: "PUT",
+      //       headers: {
+      //         "Content-type": "application/json; charset=UTF-8",
+      //       },
+      //       body: tempContent,
+      //     })
+      //       .then((response) => {
+      //         setMessage(response.ok ? "File saved" : "File not saved");
+      //         setOpenSnackbar(true);
+      //         if (response.ok) saved();
+      //         else error();
+      //         response.text().then(function (text) {
+      //           console.log("text", text);
+      //         });
+      //       })
+      //       .catch((err) => {
+      //         setMessage(err);
+      //         setOpenSnackbar(true);
+      //         error();
+      //         console.log("PUT err: ", err);
+      //       });
+      //   })
+      //   .catch((err) => {
+      //     setMessage(
+      //       "DELETE was attempted before the new version was saved - but the DELETE failed. (see console)"
+      //     );
+      //     setOpenSnackbar(true);
+      //     error();
+      //     console.log("DELETE err: ", err);
+      //   });
     },
     saveChanges = (dataUrl, rows) => {
       let write = false;
@@ -1586,7 +1689,14 @@ const App = () => {
           originalRow = originalRows[id];
         let writeRow = false;
         // was gSDTM flag changed?
-        if (originalRow.gsdtmflag !== rowFromTable.gsdtmflag) {
+        const gsdtmflagFrom = ["false", "0"].includes(originalRow.gsdtmflag)
+            ? false
+            : Boolean(originalRow.gsdtmflag),
+          gsdtmflagTo = ["false", "0"].includes(rowFromTable.gsdtmflag)
+            ? false
+            : Boolean(rowFromTable.gsdtmflag);
+
+        if (gsdtmflagFrom !== gsdtmflagTo) {
           console.log(
             "gsdtmflag changed to: ",
             rowFromTable.gsdtmflag,
@@ -1639,6 +1749,7 @@ const App = () => {
           rowFromTable.changed = new Date().toISOString();
         }
       });
+      console.log("write", write);
       if (write) updateJsonFile(dataUrl, rowsToUse);
     },
     [openInfo, setOpenInfo] = useState(false),
@@ -1837,7 +1948,7 @@ const App = () => {
       );
     };
 
-  let username = localStorage.getItem("username");
+  // let username = localStorage.getItem("username");
 
   // useEffect(() => {
   //   if (showOngoingStudies) {
@@ -1849,43 +1960,45 @@ const App = () => {
   //   }
   // }, [showOngoingStudies]);
 
-  useEffect(() => {
-    if (username === null) {
-      setTempUsername("");
-      setOpenUserLogin(true);
-    } else {
-      setTempUsername(username);
-      setOpenUserLogin(false);
-      setOpenSnackbar(true);
-    }
-  }, [username]);
+  // useEffect(() => {
+  //   if (username === null) {
+  //     setTempUsername("");
+  //     setOpenUserLogin(true);
+  //   } else {
+  //     setTempUsername(username);
+  //     setOpenUserLogin(false);
+  //     setOpenSnackbar(true);
+  //   }
+  // }, [username]);
 
-  useEffect(() => {
-    // console.log("window", window);
-    if (userList === null) return;
-    const matchingUsers = userList.filter(
-      (r) => r.userid === tempUsername && ["prg", "prg+ba"].includes(r.profile)
-    );
-    if (matchingUsers.length > 0) {
-      setShowSaveButton(true);
-      setUserFullName(matchingUsers[0].Name);
-    } else {
-      setShowSaveButton(false);
-      setUserFullName("");
-    }
-    // eslint-disable-next-line
-  }, [tempUsername]);
+  // useEffect(() => {
+  //   // console.log("window", window);
+  //   if (userList === null) return;
+  //   const matchingUsers = userList.filter(
+  //     (r) => r.userid === tempUsername && ["prg", "prg+ba"].includes(r.profile)
+  //   );
+  //   if (matchingUsers.length > 0) {
+  //     setShowSaveButton(true);
+  //     setUserFullName(matchingUsers[0].Name);
+  //   } else {
+  //     setShowSaveButton(false);
+  //     setUserFullName("");
+  //   }
+  //   // eslint-disable-next-line
+  // }, [tempUsername]);
 
   useEffect(() => {
     if (rowsToUse.length === 0 || ready) return;
     console.log("rowsToUse", rowsToUse);
     const tempQf = [params.get("study")].toString().toUpperCase(); // convert to upper case since study values are all upper case
+    console.log("tempQf", tempQf);
     setQuickFilterValues(tempQf);
 
     // add an id to each object in array
     rowsToUse.forEach((e, i) => {
       e.id = i;
-      if (e.new_study === "Y" || e.visibleFlag === "N") e.sort = 1;
+      if (e.new_study === "Y" || e.new_study === "Z" || e.visibleFlag === "N")
+        e.sort = 1;
       else e.sort = 0;
       if (!("status" in e)) e.status = "???";
     });
@@ -1970,6 +2083,7 @@ const App = () => {
     if (ind === -1) return;
     rowsToUse[ind].path_locked = selectedPathLocked;
     rowsToUse[ind].needsCopy = needsCopy;
+    rowsToUse[ind].path_locked_changed = new Date().toISOString();
     setSelectedPathLocked(null);
     setNeedsCopy(null);
     // eslint-disable-next-line
@@ -1979,11 +2093,27 @@ const App = () => {
   useEffect(() => {
     if (mode === "local") {
       console.log("assigning local test data");
+      const _tempUsername = localStorage.getItem("username");
+      setTempUsername(_tempUsername);
       setRowsToUse(local_rows);
       setUserList(local_user_list);
       setStudyPeople(local_study_people);
       setSuperUsers(local_super_users);
     } else {
+      const _tempUsername = localStorage.getItem("username"),
+        tempEncryptedPassword = localStorage.getItem("encryptedPassword");
+      setTempUsername(_tempUsername);
+      setUsername(tempUsername);
+      setEncryptedPassword(tempEncryptedPassword);
+
+      // if (rLinks) {
+      //   populateLinks();
+      // }
+
+      // logon if we have the info needed to do it successfully
+      // if it fails, then token is set to null which will trigger opening encrypt app
+      logon(api, _tempUsername, tempEncryptedPassword, setToken);
+
       fetch(dataUrl)
         .then((response) => response.json())
         .then((data) => {
@@ -2002,6 +2132,7 @@ const App = () => {
       fetch(superUserUrl)
         .then((response) => response.json())
         .then((data) => {
+          console.log("superUsers", data);
           setSuperUsers(data);
         });
     }
@@ -2031,6 +2162,28 @@ const App = () => {
       tobesaved({ id: "bit" });
     }, 1500);
   }, [needToSave, flash, tobesaved, saved]);
+
+  // if encrypting password failed, then open the encrypt app before continuing
+  useEffect(() => {
+    // default value for token is undefined, if logon is attempted and fails then it is set to null
+    if (token === null) {
+      setMessage(
+        "😲 Logon failed - please re-enter your username & password and then return to this page to refresh it. 👍"
+      );
+      setOpenSnackbar(true);
+      setTimeout(() => {
+        window
+          .open(
+            "https://" +
+              host +
+              "/lsaf/webdav/" +
+              lsafType +
+              "/general/biostat/apps/encrypt/index.html"
+          )
+          .focus();
+      }, 3000);
+    } else setOpenSnackbar3(true);
+  }, [token, host, lsafType]);
 
   const processRowUpdate = (newRow) => {
     const updatedRow = { ...newRow, isNew: false };
@@ -2151,7 +2304,7 @@ const App = () => {
                 window
                   .open(
                     origin +
-                      `/lsaf/webdav/repo/general/biostat/apps/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part1.log`,
+                      `/lsaf/webdav/repo/general/biostat/apps/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_last_part1_check_studies.log`,
                     "_blank"
                   )
                   .focus();
@@ -2160,7 +2313,28 @@ const App = () => {
               color="secondary"
               startIcon={<ViewCozy sx={{ fontSize: fontSize }} />}
             >
-              Part 1
+              1
+            </Button>
+          </Tooltip>
+          <Tooltip title="Log from part 2 of the SDTM_last process which checks for new Zip files and sends emails">
+            <Button
+              variant="outlined"
+              // disabled={!allowSave}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              onClick={() => {
+                window
+                  .open(
+                    origin +
+                      `/lsaf/webdav/repo/general/biostat/apps/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/utils/dev/logs/sdtm_last_part2_zips_and_emails.log`,
+                    "_blank"
+                  )
+                  .focus();
+              }}
+              size="small"
+              color="secondary"
+              startIcon={<ViewCozy sx={{ fontSize: fontSize }} />}
+            >
+              2
             </Button>
           </Tooltip>
           <Tooltip title="Log from part 3 of the SDTM_last process">
@@ -2172,7 +2346,7 @@ const App = () => {
                 window
                   .open(
                     origin +
-                      `/lsaf/webdav/repo/general/biostat/apps/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_part3.log`,
+                      `/lsaf/webdav/repo/general/biostat/apps/logviewer/index.html?log=${origin}/lsaf/webdav/repo/general/biostat/jobs/gadam_ongoing_studies/dev/logs/sdtm_last_part3_copy_data.log`,
                     "_blank"
                   )
                   .focus();
@@ -2181,7 +2355,7 @@ const App = () => {
               color="secondary"
               startIcon={<ViewCozy sx={{ fontSize: fontSize }} />}
             >
-              Part 3
+              3
             </Button>
           </Tooltip>
           <Tooltip title="Run part 3 of the SDTM_last process which will copy gSDTM & zip files (if needed)">
@@ -2193,7 +2367,7 @@ const App = () => {
                 window
                   .open(
                     origin +
-                      `/lsaf/filedownload/sdd%3A/general/biostat/apps/restapi/index.html?job=/general/biostat/jobs/gadam_ongoing_studies/dev/jobs/sdtm_part3.job&run=y`,
+                      `/lsaf/filedownload/sdd%3A/general/biostat/apps/restapi/index.html?job=/general/biostat/jobs/gadam_ongoing_studies/dev/jobs/sdtm_last_part3_copy_data.job&run=y`,
                     "_blank"
                   )
                   .focus();
@@ -2212,7 +2386,7 @@ const App = () => {
               onClick={() => {
                 window
                   .open(
-                    `https://${server}/lsaf/filedownload/sdd%3A///general/biostat/apps/view/index.html?lsaf=/general/biostat/metadata/projects/sdtm_for_studies.json&readonly=true`
+                    `https://${server}/lsaf/filedownload/sdd%3A///general/biostat/apps/view/index.html?lsaf=/general/biostat/apps/sdtm-last/sdtm_for_studies.json&readonly=true`
                   )
                   .focus();
               }}
@@ -2290,7 +2464,7 @@ const App = () => {
                   filter: {
                     filterModel: {
                       items: [],
-                      quickFilterValues: quickFilterValues || [],
+                      quickFilterValues: [quickFilterValues] || [],
                     },
                   },
                 }}
@@ -2306,73 +2480,7 @@ const App = () => {
           </Grid>
         )}
       </Grid>
-      {/* dialog that prompts for a user name */}
-      {!username && (
-        <Dialog
-          fullWidth
-          maxWidth="sm"
-          onClose={() => setOpenUserLogin(false)}
-          open={openUserLogin}
-          title={"User Login"}
-        >
-          <DialogTitle>
-            <Box>
-              {" "}
-              {userFullName && userFullName.length > 0
-                ? `Hi ${userFullName}! Now you are recognized you can press SAVE.`
-                : "Who are you?"}
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            {" "}
-            <TextField
-              id="input-with-icon-textfield"
-              label="User Name"
-              placeholder="e.g. pmason"
-              value={tempUsername}
-              onChange={(e) => {
-                setTempUsername(e.target.value);
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <AccountCircle />
-                  </InputAdornment>
-                ),
-              }}
-              variant="standard"
-            />
-          </DialogContent>
-          <DialogActions>
-            {tempUsername && tempUsername > "" && userList.length > 0 && (
-              <Button
-                sx={{ height: fontSize + 3 }}
-                disabled={!showSaveButton}
-                onClick={() => saveUser()}
-              >
-                Save
-              </Button>
-            )}
-          </DialogActions>
-        </Dialog>
-      )}
-      {tempUsername && (
-        <Snackbar
-          severity="success"
-          open={openSnackbar}
-          autoHideDuration={7000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity="success"
-            sx={{ width: "100%" }}
-          >
-            Welcome 👨‍🦲 {userFullName} ({username})
-          </Alert>
-        </Snackbar>
-      )}
+
       {message && (
         <Snackbar
           open={openSnackbar}
@@ -2388,6 +2496,23 @@ const App = () => {
           onClose={handleCloseSnackbar2}
           message={showMessage}
         />
+      )}
+      {username && (
+        <Snackbar
+          severity="success"
+          open={openSnackbar3}
+          autoHideDuration={7000}
+          onClose={handleCloseSnackbar3}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        >
+          <Alert
+            onClose={handleCloseSnackbar3}
+            severity="success"
+            sx={{ width: "100%" }}
+          >
+            Welcome 👨‍🦲 {userFullName} ({username})
+          </Alert>
+        </Snackbar>
       )}
       {/* dialog to select zip files */}
       <Dialog
@@ -2637,6 +2762,23 @@ const App = () => {
               />{" "}
             </>
           ) : null}
+          {!message && username && (
+            <Snackbar
+              severity="success"
+              open={openSnackbar}
+              autoHideDuration={7000}
+              onClose={handleCloseSnackbar}
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            >
+              <Alert
+                onClose={handleCloseSnackbar}
+                severity="success"
+                sx={{ width: "100%" }}
+              >
+                Welcome 👨‍🦲 {userFullName} ({username})
+              </Alert>
+            </Snackbar>
+          )}
           {/* Only show ongoing studies (switch off to see all studies!) */}
           {/* <Switch
             sx={{

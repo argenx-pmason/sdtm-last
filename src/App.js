@@ -957,9 +957,10 @@ const App = () => {
         flex: 1,
         renderCell: (cellValues) => {
           const { value, row } = cellValues,
-            pathArray = value.split("/"),
             { id, gsdtmflag, needsCopy, newer_zip } = row,
+            pathArray = value.split("/"),
             lastPart = pathArray.slice(5).join("/");
+          // console.log(row, value, pathArray, lastPart, gsdtmflag, needsCopy);
           if (gsdtmflag) return <Box></Box>;
           else if (value === "Manual")
             return (
@@ -977,27 +978,21 @@ const App = () => {
                 />
               </Tooltip>
             );
-          else if (lastPart.length > 0)
+          else if (lastPart.length > 0) {
+            let _title = "click to choose path",
+              _backgroundColor = null;
+            if (needsCopy === "Y") _title = "will be copied";
+            else if (newer_zip.length > 0)
+              _title = "Newer zip file is available - " + newer_zip;
+            if (needsCopy === "Y") _backgroundColor = "#e6ffe6";
+            else if (newer_zip.length > 0) _backgroundColor = "#fff5e6";
             return (
-              <Tooltip
-                title={
-                  needsCopy === "Y"
-                    ? "will be copied"
-                    : newer_zip
-                    ? "Newer zip file is available - " + newer_zip
-                    : "click to choose path"
-                }
-              >
+              <Tooltip title={_title}>
                 <Box
                   sx={{
                     textDecoration: "underline",
                     cursor: "pointer",
-                    backgroundColor:
-                      needsCopy === "Y"
-                        ? "#e6ffe6"
-                        : newer_zip
-                        ? "#fff5e6"
-                        : null,
+                    backgroundColor: _backgroundColor,
                     color: "blue",
                   }}
                   onClick={() => {
@@ -1011,26 +1006,40 @@ const App = () => {
                 </Box>
               </Tooltip>
             );
-          else
+          } else {
+            let _title = "click to choose path",
+              _backgroundColor = null;
+            if (newer_zip.length > 0)
+              _title = "Newer zip file is available - " + newer_zip;
+            if (newer_zip.length > 0) _backgroundColor = "#fff5e6";
             return (
-              <Button
-                sx={{
-                  fontSize: fontSize,
-                  border: 0.1,
-                  padding: 0.5,
-                  mt: 0.5,
-                  height: fontSize + 4,
-                }}
-                onClick={() => {
-                  console.log("id", id);
-                  setSelectedId(id);
-                  setDialogType("last");
-                  handleClick(value, id, "last");
-                }}
-              >
-                Choose path
-              </Button>
+              <Tooltip title={_title}>
+                <Box
+                  sx={{
+                    backgroundColor: _backgroundColor,
+                  }}
+                >
+                  <Button
+                    sx={{
+                      fontSize: fontSize,
+                      border: 0.1,
+                      padding: 0.5,
+                      mt: 0.5,
+                      height: fontSize + 4,
+                    }}
+                    onClick={() => {
+                      console.log("id", id);
+                      setSelectedId(id);
+                      setDialogType("last");
+                      handleClick(value, id, "last");
+                    }}
+                  >
+                    Choose path
+                  </Button>
+                </Box>
+              </Tooltip>
             );
+          }
         },
       },
 
@@ -1060,9 +1069,9 @@ const App = () => {
             color =
               path_locked === ""
                 ? "info"
-                : // : status === "final" && path !== path_locked
-                  // ? "warning"
-                  "success",
+                : path !== "" && path !== path_locked
+                ? "warning"
+                : "success",
             title =
               path_locked === ""
                 ? "Click to select locked SDTM file"

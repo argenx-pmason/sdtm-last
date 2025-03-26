@@ -2187,7 +2187,7 @@ const App = () => {
               host +
               "/lsaf/webdav/" +
               lsafType +
-              "/general/biostat/apps/encrypt/index.html"
+              "/general/biostat/apps/encrypt/index.html?app=sdtm-last"
           )
           .focus();
       }, 3000);

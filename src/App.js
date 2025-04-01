@@ -51,6 +51,7 @@ import {
   LockOpen,
   DirectionsRun,
   CheckBox,
+  Output,
 } from "@mui/icons-material";
 import {
   DataGridPro,
@@ -1057,6 +1058,7 @@ const App = () => {
               indication,
               studyname,
               path_locked_changed,
+              gsdtmflag,
             } = row,
             default_path_locked =
               "/clinical/" +
@@ -1157,26 +1159,25 @@ const App = () => {
                 </IconButton>
               </Tooltip>
               <Tooltip title="View gSDTM log in log viewer">
-                <Box>
-                  <IconButton
-                    onClick={() => {
-                      window
-                        .open(
-                          `${logViewerPrefix}/clinical/${compound}/${indication}/${studyname}/dm/g_sdtm/current/2_jobs/logs/cj_mapping_engine.log`,
-                          "_blank"
-                        )
-                        .focus();
+                <IconButton
+                  onClick={() => {
+                    window
+                      .open(
+                        `${logViewerPrefix}/clinical/${compound}/${indication}/${studyname}/dm/g_sdtm/current/2_jobs/logs/cj_mapping_engine.log`,
+                        "_blank"
+                      )
+                      .focus();
+                  }}
+                  disabled={gsdtmflag == "0"}
+                  color={gsdtmflag == "1" ? "success" : "info"}
+                >
+                  <ViewComfy
+                    sx={{
+                      "&:hover": { cursor: "pointer" },
+                      fontSize: fontSize + 3,
                     }}
-                    disabled={!showGsdtmSwitch}
-                  >
-                    <ViewComfy
-                      sx={{
-                        "&:hover": { cursor: "pointer" },
-                        fontSize: fontSize + 3,
-                      }}
-                    />
-                  </IconButton>
-                </Box>
+                  />
+                </IconButton>
               </Tooltip>
             </>
           );
@@ -2346,6 +2347,27 @@ const App = () => {
               2
             </Button>
           </Tooltip>
+          <Tooltip title="Output from part 3 of the SDTM_last process">
+            <Button
+              variant="outlined"
+              // disabled={!allowSave}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              onClick={() => {
+                window
+                  .open(
+                    origin +
+                      `/lsaf/webdav/repo/general/biostat/apps/fileviewer/index.html?file=/general/biostat/jobs/utils/dev/output/sdtm_last_part2_zips_and_emails.lst`,
+                    "_blank"
+                  )
+                  .focus();
+              }}
+              size="small"
+              color="secondary"
+              startIcon={<Output sx={{ fontSize: fontSize }} />}
+            >
+              2
+            </Button>
+          </Tooltip>
           <Tooltip title="Log from part 3 of the SDTM_last process">
             <Button
               variant="outlined"
@@ -2363,6 +2385,28 @@ const App = () => {
               size="small"
               color="secondary"
               startIcon={<ViewCozy sx={{ fontSize: fontSize }} />}
+            >
+              3
+            </Button>
+          </Tooltip>
+
+          <Tooltip title="Output from part 3 of the SDTM_last process">
+            <Button
+              variant="outlined"
+              // disabled={!allowSave}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              onClick={() => {
+                window
+                  .open(
+                    origin +
+                      `/lsaf/webdav/repo/general/biostat/apps/fileviewer/index.html?file=/general/biostat/jobs/gadam_ongoing_studies/dev/output/sdtm_last_part3_copy_data.lst`,
+                    "_blank"
+                  )
+                  .focus();
+              }}
+              size="small"
+              color="secondary"
+              startIcon={<Output sx={{ fontSize: fontSize }} />}
             >
               3
             </Button>

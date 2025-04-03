@@ -52,6 +52,7 @@ import {
   DirectionsRun,
   CheckBox,
   Output,
+  AccessTime,
 } from "@mui/icons-material";
 import {
   DataGridPro,
@@ -2282,7 +2283,7 @@ const App = () => {
               </Button>
             </Tooltip>
           )}
-          {showGsdtmSwitch && (
+          {/* {showGsdtmSwitch && (
             <Tooltip title="View Data Management gSDTM process flow schedules">
               <Button
                 variant="outlined"
@@ -2304,7 +2305,28 @@ const App = () => {
                 Flows
               </Button>
             </Tooltip>
-          )}
+          )} */}
+          <Tooltip title="View gSDTM jobs schedule">
+            <Button
+              variant="contained"
+              // disabled={!allowSave}
+              sx={{ m: 1, fontSize: fontSize, height: fontSize + 3 }}
+              onClick={() => {
+                window
+                  .open(
+                    origin +
+                      `/lsaf/filedownload/sdd:///general/biostat/apps/view/index.html?lsaf=/general/biostat/metadata/projects/rm/overview_process_flow_schedules.json&meta=/general/biostat/metadata/projects/rm/overview_process_flow_schedules-meta.json&title=%20%E2%8C%9A%20DM%20Process%20Flow%20Schedule`,
+                    "_blank"
+                  )
+                  .focus();
+              }}
+              size="small"
+              color="warning"
+              startIcon={<AccessTime sx={{ fontSize: fontSize }} />}
+            >
+              DM
+            </Button>
+          </Tooltip>
           <Tooltip title="Log from part 1 of the SDTM_last process">
             <Button
               variant="outlined"

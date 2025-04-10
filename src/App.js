@@ -4,6 +4,7 @@ import local_rows from "./sdtm_for_studies.json";
 import local_user_list from "./folder_access_request.json";
 import local_study_people from "./study_people.json";
 import local_super_users from "./super_users.json";
+import local_overview_process_flow_schedules from "./overview_process_flow_schedules.json";
 import {
   Box,
   Grid,
@@ -15,6 +16,7 @@ import {
   Tooltip,
   Link,
   AppBar,
+  Modal,
   Toolbar,
   IconButton,
   Alert,
@@ -87,7 +89,7 @@ const App = () => {
   if (host.includes("sharepoint")) {
     realhost = "xarprod.ondemand.sas.com";
   } else if (host.includes("localhost")) {
-    realhost = "xartest.ondemand.sas.com";
+    realhost = "xarval.ondemand.sas.com";
   } else {
     realhost = host;
   }
@@ -116,12 +118,16 @@ const App = () => {
     peopleUrl =
       webDavPrefix + "/general/biostat/apps/study_people/study_people.json",
     superUserUrl = webDavPrefix + "/general/biostat/apps/super_users.json",
+    gsdtmUrl =
+      webDavPrefix +
+      "/general/biostat/metadata/projects/rm/overview_process_flow_schedules.json",
     [rowsToUse, setRowsToUse] = useState([]),
     [originalRows, setOriginalRows] = useState([]),
     [showMessage, setShowMessage] = useState(null),
     [showGsdtmSwitch, setShowGsdtmSwitch] = useState(false),
     [quickFilterValues, setQuickFilterValues] = useState(null),
     [pathForThisRow, setPathForThisRow] = useState(""),
+    [showSchedule, setShowSchedule] = useState(false),
     // [showOngoingStudies, setShowOngoingStudies] = useState(true),
     // [filterModel, setFilterModel] = useState({ items: [] }),
     // options = [
@@ -153,6 +159,7 @@ const App = () => {
     [selected, setSelected] = useState(null),
     [studyPeople, setStudyPeople] = useState(null),
     [superUsers, setSuperUsers] = useState(null),
+    [gsdtm, setGsdtm] = useState(null),
     [dialogType, setDialogType] = useState(null),
     parseCustomDateTime = (dateTimeStr) => {
       const months = {
@@ -2110,6 +2117,18 @@ const App = () => {
       setUserList(local_user_list);
       setStudyPeople(local_study_people);
       setSuperUsers(local_super_users);
+      const _tempopfs = local_overview_process_flow_schedules
+        .map((item) => {
+          return {
+            scheduleName: item.scheduleName,
+            utc: item.first_runTime_utc.slice(8),
+            summer: item.first_runTime_cet_summer.slice(8),
+            winter: item.first_runTime_cet_winter.slice(8),
+          };
+        })
+        .sort((a, b) => a.utc.localeCompare(b.utc));
+      setGsdtm(_tempopfs);
+      console.log("gsdtm", _tempopfs);
     } else {
       const _tempUsername = localStorage.getItem("username"),
         tempEncryptedPassword = localStorage.getItem("encryptedPassword");
@@ -2146,8 +2165,24 @@ const App = () => {
           console.log("superUsers", data);
           setSuperUsers(data);
         });
+      fetch(gsdtmUrl)
+        .then((response) => response.json())
+        .then((data) => {
+          const tempData = data
+            .map((item) => {
+              return {
+                scheduleName: item.scheduleName,
+                utc: item.first_runTime_utc.slice(8),
+                summer: item.first_runTime_cet_summer.slice(8),
+                winter: item.first_runTime_cet_winter.slice(8),
+              };
+            })
+            .sort((a, b) => a.utc.localeCompare(b.utc));
+          console.log("gsdtm - data", data);
+          setGsdtm(tempData);
+        });
     }
-  }, [dataUrl, usersUrl, peopleUrl, mode, superUserUrl]);
+  }, [dataUrl, usersUrl, peopleUrl, mode, superUserUrl, gsdtmUrl]);
 
   // if the last folder was not valid then open a more reliable one
   useEffect(() => {
@@ -2306,7 +2341,7 @@ const App = () => {
               </Button>
             </Tooltip>
           )} */}
-          <Tooltip title="View gSDTM jobs schedule">
+          <Tooltip title="View gSDTM jobs schedule (right click for quick summary)">
             <Button
               variant="contained"
               // disabled={!allowSave}
@@ -2320,6 +2355,18 @@ const App = () => {
                   )
                   .focus();
               }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setShowSchedule(true);
+                setTimeout(() => {
+                  setShowSchedule(false);
+                }, 10000);
+                return false;
+              }}
+              onMou
+              // onMouseOut={() => {
+              //   setShowSchedule(false);
+              // }}
               size="small"
               color="warning"
               startIcon={<AccessTime sx={{ fontSize: fontSize }} />}
@@ -2727,6 +2774,40 @@ const App = () => {
           </Box>
         </DialogContent>
       </Dialog>
+      <Modal open={showSchedule} onClose={() => setShowSchedule(false)}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 400,
+            bgcolor: "background.paper",
+            border: "2px solid #000",
+            boxShadow: 24,
+            p: 4,
+          }}
+        >
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => setShowSchedule(false)}
+            sx={{ mr: 2 }}
+          >
+            Close
+          </Button>
+          <b>gSDTM Schedule (summer/winter)</b>
+          <p />
+          {gsdtm &&
+            gsdtm.map((r, i) => {
+              return (
+                <Box key={"gsdtm" + i}>
+                  {r.summer} | {r.winter} | {r.scheduleName}
+                </Box>
+              );
+            })}
+        </Box>
+      </Modal>
       {/* Dialog with General info about this screen */}
       <Dialog
         fullWidth
